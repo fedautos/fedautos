@@ -17,8 +17,8 @@
             --text-gray: #a0a0a0;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; scroll-behavior: smooth; }
-        body { background-color: var(--dark-bg); color: var(--text-white); overflow-x: hidden; padding-top: 100px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--dark-bg); color: var(--text-white); padding-top: 100px; }
 
         header {
             display: flex; justify-content: space-between; align-items: center;
@@ -26,127 +26,96 @@
             position: fixed; width: 100%; top: 0; z-index: 3000; 
             border-bottom: 2px solid var(--brand-orange); height: 80px;
         }
-        .logo-container img { height: 45px; width: auto; }
-        .admin-badge { background: var(--brand-orange); color: black; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; margin-left: 10px; text-transform: uppercase; }
-        .btn-sair { background: transparent; color: #ff4c4c; border: 1px solid #ff4c4c; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; text-decoration: none; }
-        .btn-sair:hover { background: #ff4c4c; color: white; }
+        .logo-container img { height: 45px; }
+        .admin-badge { background: var(--brand-orange); color: black; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; margin-left: 10px; }
 
-        .admin-container { padding: 20px 8%; display: flex; flex-direction: column; gap: 40px; }
-        
-        .section-title { font-size: 1.8rem; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #2d333b; padding-bottom: 10px; }
-        .section-title i { color: var(--brand-orange); }
-
-        .form-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--brand-orange); padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .admin-container { padding: 20px 8%; }
+        .form-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--brand-orange); padding: 30px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         
         .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .input-group.full-width { grid-column: 1 / -1; }
-        .input-group label { font-weight: bold; color: var(--text-gray); font-size: 0.9rem; }
+        label { font-weight: bold; color: var(--text-gray); font-size: 0.9rem; }
         
-        input, select, textarea {
+        input, select {
             padding: 14px; border-radius: 6px; border: 1px solid #2d333b; 
-            background: var(--dark-bg); color: white; font-size: 1rem; outline: none; width: 100%; transition: 0.3s;
+            background: var(--dark-bg); color: white; outline: none;
         }
-        input:focus, select:focus, textarea:focus { border-color: var(--brand-orange); box-shadow: 0 0 5px rgba(244,129,63,0.3); }
-        textarea { resize: vertical; min-height: 120px; }
-
-        .upload-area {
-            border: 2px dashed #2d333b; border-radius: 8px; padding: 40px; text-align: center;
-            background: rgba(11, 14, 17, 0.5); cursor: pointer; transition: 0.3s; margin-top: 10px;
-        }
-        .upload-area:hover { border-color: var(--brand-orange); background: rgba(244,129,63,0.05); }
-        .upload-area i { font-size: 3rem; color: var(--brand-orange); margin-bottom: 15px; }
-        .upload-area p { color: var(--text-gray); font-size: 1.1rem; }
-        #fotos-input { display: none; }
-        
-        .preview-fotos { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
-        .preview-item-wrapper { position: relative; width: 100px; height: 100px; border-radius: 6px; border: 1px solid #2d333b; cursor: grab; overflow: hidden; }
-        .preview-item { width: 100%; height: 100%; object-fit: cover; }
-        .btn-remove-foto { position: absolute; bottom: 5px; right: 5px; background: rgba(255, 76, 76, 0.8); color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        input:focus { border-color: var(--brand-orange); }
 
         .btn-primario { 
-            background: var(--brand-orange); color: #000; padding: 14px 30px; border-radius: 6px; 
-            font-weight: bold; transition: 0.3s; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.1rem; text-transform: uppercase; width: 100%; margin-top: 20px;
-        }
-        .btn-primario:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(244,129,63,0.4); }
-
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
+            background: var(--brand-orange); color: #000; padding: 14px; border-radius: 6px; 
+            font-weight: bold; border: none; cursor: pointer; width: 100%; margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo-container" style="display: flex; align-items: center;">
+        <div class="logo-container">
             <img src="logo.png" alt="F&D AUTOS" onerror="this.style.display='none'">
             <span class="admin-badge">Painel Admin</span>
         </div>
-        <a href="index.html" class="btn-sair"><i class="fas fa-sign-out-alt"></i> Voltar ao Site</a>
     </header>
 
     <main class="admin-container">
-        <section>
-            <h2 class="section-title"><i class="fas fa-plus-circle"></i> Publicar / Editar Anúncio</h2>
-            <div class="form-card">
-                <form id="formVeiculo" onsubmit="salvarVeiculo(event)">
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Placa do Veículo (Preenchimento Automático)</label>
-                            <input type="text" id="placa" placeholder="Ex: ABC1234" maxlength="7" onblur="buscarPorPlaca()">
-                            <span id="msgPlaca" style="font-size: 0.8rem; display: none;">Buscando...</span>
-                        </div>
-                        <div class="input-group">
-                            <label>Nome do Veículo</label>
-                            <input type="text" id="nome" placeholder="Ex: Chevrolet Onix LTZ" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Marca</label>
-                            <select id="marca" required>
-                                <option value="">Selecione...</option>
-                                <option value="CHEVROLET">Chevrolet</option>
-                                <option value="CITROEN">Citroen</option>
-                                <option value="FIAT">Fiat</option>
-                                <option value="FORD">Ford</option>
-                                <option value="HONDA">Honda</option>
-                                <option value="HYUNDAI">Hyundai</option>
-                                <option value="JEEP">Jeep</option>
-                                <option value="NISSAN">Nissan</option>
-                                <option value="PEUGEOT">Peugeot</option>
-                                <option value="RENAULT">Renault</option>
-                                <option value="TOYOTA">Toyota</option>
-                                <option value="VOLKSWAGEN">Volkswagen</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Preço</label>
-                            <input type="text" id="preco" placeholder="Ex: R$ 58.900" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Ano</label>
-                            <input type="text" id="ano" placeholder="Ex: 2019/2019" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Cor</label>
-                            <input type="text" id="cor" placeholder="Ex: Prata" required>
-                        </div>
+        <div class="form-card">
+            <form id="formVeiculo">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Placa do Veículo (Toque fora após digitar)</label>
+                        <input type="text" id="placa" placeholder="Ex: ABC1234" maxlength="7" onblur="buscarPorPlaca()">
+                        <span id="msgPlaca" style="font-size: 0.8rem; display: none;"></span>
                     </div>
-                    <button type="submit" class="btn-primario">Salvar Anúncio</button>
-                </form>
-            </div>
-        </section>
+
+                    <div class="input-group">
+                        <label>Nome do Veículo</label>
+                        <input type="text" id="nome" placeholder="Buscando...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Marca</label>
+                        <select id="marca">
+                            <option value="">Selecione...</option>
+                            <option value="CHEVROLET">Chevrolet</option>
+                            <option value="FIAT">Fiat</option>
+                            <option value="FORD">Ford</option>
+                            <option value="HONDA">Honda</option>
+                            <option value="HYUNDAI">Hyundai</option>
+                            <option value="TOYOTA">Toyota</option>
+                            <option value="VOLKSWAGEN">Volkswagen</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Ano</label>
+                        <input type="text" id="ano" placeholder="Buscando...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Cor</label>
+                        <input type="text" id="cor" placeholder="Buscando...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Preço</label>
+                        <input type="text" id="preco" placeholder="Ex: R$ 50.000">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primario">Salvar Anúncio</button>
+            </form>
+        </div>
     </main>
 
     <script>
         async function buscarPorPlaca() {
-            const placa = document.getElementById('placa').value.toUpperCase();
+            const placa = document.getElementById('placa').value.toUpperCase().replace('-', '');
             const msg = document.getElementById('msgPlaca');
+            
             if (placa.length === 7) {
                 msg.style.display = 'block';
-                msg.innerText = 'Buscando informações...';
+                msg.innerText = 'Buscando na APIBrasil...';
                 msg.style.color = '#f4813f';
-                
+
                 try {
                     const response = await fetch(`https://api.apibrasil.com.br/v2/vehicles/plate?plate=${placa}`, {
                         method: 'GET',
@@ -155,22 +124,43 @@
                             'Content-Type': 'application/json'
                         }
                     });
+
                     const result = await response.json();
-                    const dados = result.data || result;
-                    if(dados.modelo) {
-                        document.getElementById('nome').value = dados.modelo;
-                        document.getElementById('ano').value = `${dados.ano}/${dados.anoModelo}`;
-                        document.getElementById('cor').value = dados.cor;
-                        msg.innerText = 'Veículo encontrado!';
-                        msg.style.color = '#25d366';
+                    
+                    if (result.error) {
+                        throw new Error(result.message);
                     }
-                } catch (e) {
-                    msg.innerText = 'Erro ao buscar placa.';
+
+                    const dados = result.data;
+                    document.getElementById('nome').value = dados.modelo || '';
+                    document.getElementById('ano').value = dados.anoModelo || '';
+                    document.getElementById('cor').value = dados.cor || '';
+                    
+                    // Tenta selecionar a marca automaticamente
+                    const marcaApi = dados.marca.toUpperCase();
+                    const selectMarca = document.getElementById('marca');
+                    for (let i = 0; i < selectMarca.options.length; i++) {
+                        if (marcaApi.includes(selectMarca.options[i].value)) {
+                            selectMarca.selectedIndex = i;
+                            break;
+                        }
+                    }
+
+                    msg.innerText = 'Veículo carregado!';
+                    msg.style.color = '#25d366';
+
+                } catch (error) {
+                    console.error(error);
+                    msg.innerText = 'Erro ao buscar placa. Verifique o saldo ou Token.';
                     msg.style.color = '#ff4c4c';
                 }
             }
         }
-        function salvarVeiculo(e) { e.preventDefault(); alert('Pronto para salvar!'); }
+
+        document.getElementById('formVeiculo').onsubmit = (e) => {
+            e.preventDefault();
+            alert('Dados capturados com sucesso!');
+        };
     </script>
 </body>
 </html>
