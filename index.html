@@ -15,6 +15,10 @@
     <meta name="twitter:card" content="summary_large_image">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --brand-orange: #f4813f; 
@@ -145,7 +149,6 @@
         }
         .paginacao-inline input::-webkit-outer-spin-button, .paginacao-inline input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-        /* Ajuste do grid para evitar que um card único ocupe a tela toda */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
         .card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid #2d333b; transition: 0.4s; display: flex; flex-direction: column;}
         .card:hover { transform: translateY(-8px); border-color: var(--brand-orange); }
@@ -234,13 +237,13 @@
            RESPONSIVIDADE MOBILE (TELAS MENORES QUE 850px)
            ============================================================== */
         @media (max-width: 850px) { 
-            header { flex-direction: column; padding: 10px 5%; height: auto; align-items: center; justify-content: center; text-align: center; }
-            .logo-container { width: 100%; display: flex; justify-content: center; }
-            .logo-container img { height: 35px; }
-            nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: center; width: 100%; }
+            header { flex-direction: column; justify-content: center; align-items: center; padding: 15px 10px; gap: 10px; height: auto; }
+            header img { display: none !important; }
+            nav { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 5px; justify-content: center; width: 100%; }
             .header-spacer { display: none; }
             
-            .hero { margin-top: 120px; height: auto; padding: 40px 5%; }
+            /* Ajuste de fundo para não bugar zoom em celulares */
+            .hero { margin-top: 80px; height: auto; padding: 40px 5%; background-attachment: scroll; background-position: center top; }
             .hero h1 { font-size: 2rem; }
             .hero h2 { font-size: 1.2rem; }
             .horario-funcionamento { font-size: 0.9rem; padding: 10px; display: block; }
@@ -464,6 +467,20 @@
     <a href="https://wa.me/558132225291" class="wpp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 
     <script>
+        // === CONFIGURAÇÕES DA PONTE INDEX (ATUALIZADO) ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2-uY5lCh2qT6ifJLIR1iwTSS9yZB0x3c",
+            authDomain: "fd-autos-site.firebaseapp.com",
+            projectId: "fd-autos-site",
+            storageBucket: "fd-autos-site.firebasestorage.app",
+            messagingSenderId: "677976820456",
+            appId: "1:677976820456:web:a68041b68ef39d0eb3975d",
+            measurementId: "G-4HV2K1KF5G"
+        };
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         const logosMarcas = {
             "Chevrolet": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Chevrolet-logo.png/120px-Chevrolet-logo.png",
             "Toyota": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Toyota_logo_%28Red%29.svg/960px-Toyota_logo_%28Red%29.svg.png",
@@ -488,30 +505,38 @@
         let direcaoOrdenacao = 'asc'; 
         let ordemAtual = null;
 
-        function sincronizarEstoque() {
-            const dadosAdmin = JSON.parse(localStorage.getItem('estoqueFDAutos')) || [];
-            
-            veiculos = dadosAdmin.filter(v => v.status === 'publicado').map(v => {
-                return {
-                    nome: `${v.marca} ${v.versao}`, 
-                    marca: v.marca,
-                    tipo: v.tipo,
-                    preco: `R$ ${v.preco}`,
-                    ano: v.ano,
-                    km: v.km,
-                    cambio: v.cambio,
-                    combustivel: v.combustivel,
-                    cor: v.cor,
-                    desc: v.descricao,
-                    fotos: v.fotos && v.fotos.length > 0 ? v.fotos.map(f => f.dataUrl) : ['https://via.placeholder.com/800x600?text=Sem+Foto']
-                };
+        // Escuta apenas veículos com status 'publicado'
+        function carregarEstoqueDados() {
+            db.collection('veiculos')
+              .where('status', '==', 'publicado')
+              .onSnapshot(snapshot => {
+                veiculos = [];
+                snapshot.forEach(doc => {
+                    const v = doc.data();
+                    veiculos.push({
+                        id: doc.id,
+                        nome: `${v.marca} ${v.versao}`, 
+                        marca: v.marca,
+                        tipo: v.tipo,
+                        preco: `R$ ${v.preco}`,
+                        ano: v.ano,
+                        km: v.km,
+                        cambio: v.cambio,
+                        combustivel: v.combustivel,
+                        cor: v.cor,
+                        desc: v.descricao,
+                        fotos: v.fotos && v.fotos.length > 0 ? v.fotos : ['https://via.placeholder.com/800x600?text=Sem+Foto']
+                    });
+                });
+                veiculosFiltrados = [...veiculos];
+                carregarEstoque();
+            }, error => {
+                console.error("Erro ao carregar do Firebase:", error);
+                document.getElementById('grid-estoque').innerHTML = '<p style="text-align:center; grid-column: 1/-1; color: #ff4c4c; padding: 40px 0;">Erro ao conectar com o servidor.</p>';
             });
-            
-            veiculosFiltrados = [...veiculos];
-            carregarEstoque();
         }
 
-        window.onload = sincronizarEstoque;
+        window.onload = carregarEstoqueDados;
 
         function atualizarContador() {
             if (vAtual && vAtual.fotos) {
@@ -639,7 +664,7 @@
             const itensPaginados = veiculosFiltrados.slice(start, end);
 
             if(itensPaginados.length === 0) {
-                grid.innerHTML = '<p style="text-align:center; grid-column: 1/-1; color: var(--text-gray); font-size: 1.2rem; padding: 40px 0;">Nenhum veículo encontrado. Aguardando publicações do administrador.</p>';
+                grid.innerHTML = '<p style="text-align:center; grid-column: 1/-1; color: var(--text-gray); font-size: 1.2rem; padding: 40px 0;">Nenhum veículo encontrado no momento.</p>';
             }
 
             itensPaginados.forEach((v) => {
