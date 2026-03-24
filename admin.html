@@ -343,7 +343,12 @@
                             </div>
 
                             <div class="input-group full-width">
-                                <label>Descrição Detalhada</label>
+                                <label style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                    Descrição Detalhada
+                                    <button type="button" onclick="gerarDescricaoIA(this)" style="background: linear-gradient(45deg, #f4813f, #ff4c4c); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                        <i class="fas fa-magic"></i> Gerar por I.A.
+                                    </button>
+                                </label>
                                 <textarea id="descricao" placeholder="Escreva os detalhes, estado de conservação..."></textarea>
                             </div>
                         </div>
@@ -443,7 +448,12 @@
                     </div>
 
                     <div class="input-group full-width">
-                        <label>Descrição Detalhada</label>
+                        <label style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            Descrição Detalhada
+                            <button type="button" onclick="gerarDescricaoIA(this)" style="background: linear-gradient(45deg, #f4813f, #ff4c4c); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                <i class="fas fa-magic"></i> Gerar por I.A.
+                            </button>
+                        </label>
                         <textarea id="edit_descricao"></textarea>
                     </div>
                 </div>
@@ -469,6 +479,7 @@
     <script>
         // === CONFIGURAÇÕES DA PONTE ===
         const IMGBB_API_KEY = "3ac59d1fa475dc7908c6c87837999bec";
+        const GEMINI_API_KEY = "AIzaSyD4TmH2u4WipQ2dQR368UnYUsfQbfrOtXY"; // Chave adicionada aqui
 
         const firebaseConfig = {
             apiKey: "AIzaSyA2-uY5lCh2qT6ifJLIR1iwTSS9yZB0x3c",
@@ -485,9 +496,8 @@
         const auth = firebase.auth();
 
         // ================= SISTEMA DE LOGIN =================
-        let listenerFirestore = null; // Para guardar o processo do banco de dados
+        let listenerFirestore = null; 
 
-        // Preencher dados se "Lembrar meu login" foi marcado anteriormente
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('adminEmailSaved')) {
                 document.getElementById('loginEmail').value = localStorage.getItem('adminEmailSaved');
@@ -496,16 +506,13 @@
             }
         });
 
-        // Definindo a persistência para SESSION (Obriga a logar quando fechar a aba/navegador)
         auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
             auth.onAuthStateChanged(user => {
                 if (user) {
-                    // Usuário logado: Esconde login, mostra painel, carrega dados
                     document.getElementById('login-screen').style.display = 'none';
                     document.getElementById('admin-content').style.display = 'block';
                     iniciarPainelAdmin();
                 } else {
-                    // Usuário deslogado: Mostra login, esconde painel, para de ler banco de dados
                     document.getElementById('login-screen').style.display = 'flex';
                     document.getElementById('admin-content').style.display = 'none';
                     if(listenerFirestore) listenerFirestore(); 
@@ -526,7 +533,6 @@
             try {
                 await auth.signInWithEmailAndPassword(email, senha);
                 
-                // Salvar ou remover dados do login
                 if (lembrar) {
                     localStorage.setItem('adminEmailSaved', email);
                     localStorage.setItem('adminSenhaSaved', senha);
@@ -559,7 +565,7 @@
         function fazerLogout(event) {
             event.preventDefault();
             auth.signOut().then(() => {
-                window.location.href = 'index.html'; // Volta para o site principal ao sair
+                window.location.href = 'index.html'; 
             });
         }
 
@@ -1075,6 +1081,70 @@
                     btnSalvar.disabled = false;
                     btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
                 }
+            }
+        }
+
+        // ================= GERADOR DE DESCRIÇÃO POR I.A =================
+        async function gerarDescricaoIA(botaoHtml) {
+            const formContext = botaoHtml.closest('form').id;
+            const prefixo = formContext === 'formEditar' ? 'edit_' : '';
+
+            // Coletar todos os dados possíveis do formulário para enriquecer a descrição
+            const marca = $(`#${prefixo}marca option:selected`).text() || '';
+            const versaoCustom = document.getElementById(`${prefixo}versao_custom`);
+            const versao = (versaoCustom && versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') 
+                            ? versaoCustom.value 
+                            : ($(`#${prefixo}versao option:selected`).text() || '');
+            const ano = document.getElementById(`${prefixo}ano`).value || '';
+            const km = document.getElementById(`${prefixo}km`).value || '';
+            const preco = document.getElementById(`${prefixo}preco`).value || '';
+            const tipo = document.getElementById(`${prefixo}tipo`).value || '';
+            const cor = document.getElementById(`${prefixo}cor`).value || '';
+            const cambio = document.getElementById(`${prefixo}cambio`).value || '';
+            const combustivel = document.getElementById(`${prefixo}combustivel`).value || '';
+
+            if (!marca || !versao || marca.includes("Selecione") || versao.includes("Selecione")) {
+                alert("Por favor, selecione ao menos a Marca e a Versão antes de gerar a descrição.");
+                return;
+            }
+
+            const textoOriginalBtn = botaoHtml.innerHTML;
+            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+            botaoHtml.disabled = true;
+
+            const dadosCarro = `Veículo: ${marca} ${versao}\nAno: ${ano}\nQuilometragem: ${km} km\nPreço: R$ ${preco}\nTipo: ${tipo}\nCor: ${cor}\nCâmbio: ${cambio}\nCombustível: ${combustivel}`;
+            
+            const templateDesejado = `Ótimo veículo, muito econômico e confortável\n✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
+
+            // Prompt atualizado para pedir uma descrição mais rica e detalhada
+            const prompt = `Você é um vendedor de carros experiente e persuasivo. Escreva uma descrição detalhada, atraente e vendedora para o seguinte veículo, destacando seus atributos (como cor, tipo de câmbio, categoria e motorização):\n\n${dadosCarro}\n\nApós o texto de introdução detalhado, adicione EXATAMENTE os seguintes tópicos no final, sem alterar nenhuma palavra ou emoji:\n\n${templateDesejado}`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    const descricaoGerada = data.candidates[0].content.parts[0].text;
+                    document.getElementById(`${prefixo}descricao`).value = descricaoGerada.trim();
+                } else {
+                    throw new Error("Erro de resposta da API.");
+                }
+            } catch (error) {
+                console.error("Erro na I.A.:", error);
+                
+                // Backup caso a API falhe, agora também enriquecido com os novos dados
+                const textoFallback = `Excelente oportunidade! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}. Veículo do tipo ${tipo}, equipado com câmbio ${cambio} e motorização a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\n\n${templateDesejado}`;
+                document.getElementById(`${prefixo}descricao`).value = textoFallback;
+            } finally {
+                botaoHtml.innerHTML = textoOriginalBtn;
+                botaoHtml.disabled = false;
             }
         }
     </script>
