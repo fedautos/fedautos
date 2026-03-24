@@ -14,7 +14,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
     <style>
         :root {
@@ -26,7 +26,28 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; scroll-behavior: smooth; }
-        body { background-color: var(--dark-bg); color: var(--text-white); overflow-x: hidden; padding-top: 100px; }
+        body { background-color: var(--dark-bg); color: var(--text-white); overflow-x: hidden; }
+
+        /* ================= TELA DE LOGIN ================= */
+        #login-screen {
+            display: none; 
+            justify-content: center; align-items: center;
+            min-height: 100vh; background: var(--dark-bg); padding: 20px;
+        }
+        .login-box {
+            background: var(--card-bg); padding: 40px; border-radius: 12px;
+            border: 1px solid var(--brand-orange); width: 100%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .login-logo { display: block; margin: 0 auto 20px auto; height: 60px; }
+        .login-box h2 { text-align: center; margin-bottom: 25px; color: var(--text-white); }
+        .login-box .input-group { margin-bottom: 15px; }
+        .login-box .btn-primario { width: 100%; margin-top: 10px; }
+        .esqueci-senha { display: block; text-align: center; margin-top: 20px; color: var(--brand-orange); text-decoration: none; font-size: 0.9rem; transition: 0.3s; }
+        .esqueci-senha:hover { text-decoration: underline; color: #fff; }
+
+        /* ================= PAINEL ADMIN ================= */
+        #admin-content { display: none; padding-top: 100px; }
 
         /* Header Admin */
         header {
@@ -186,144 +207,173 @@
 </head>
 <body>
 
-    <header>
-        <div class="logo-container" style="display: flex; align-items: center;">
-            <img src="logo.png" alt="F&D AUTOS" onerror="this.style.display='none'">
-            <span class="admin-badge">Painel Admin</span>
+    <div id="login-screen">
+        <div class="login-box">
+            <img src="logo.png" alt="F&D AUTOS" class="login-logo" onerror="this.style.display='none'">
+            <h2>Acesso Restrito</h2>
+            <form id="formLogin" onsubmit="fazerLogin(event)">
+                <div class="input-group">
+                    <label>E-mail</label>
+                    <input type="email" id="loginEmail" placeholder="admin@fdautos.com" required>
+                </div>
+                <div class="input-group" style="margin-top: 15px;">
+                    <label>Senha</label>
+                    <input type="password" id="loginSenha" placeholder="••••••••" required>
+                </div>
+                
+                <div class="input-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 15px;">
+                    <input type="checkbox" id="lembrarLogin" style="width: auto; margin: 0; cursor: pointer; accent-color: var(--brand-orange); transform: scale(1.1);">
+                    <label for="lembrarLogin" style="margin: 0; cursor: pointer; font-weight: normal; color: var(--text-gray);">Lembrar meu login</label>
+                </div>
+
+                <button type="submit" class="btn-primario" id="btnLogin">
+                    <i class="fas fa-sign-in-alt"></i> Entrar no Painel
+                </button>
+            </form>
+            <a href="#" class="esqueci-senha" onclick="recuperarSenha()"><i class="fas fa-key"></i> Esqueci minha senha</a>
         </div>
-        <a href="index.html" class="btn-sair"><i class="fas fa-sign-out-alt"></i> Voltar ao Site</a>
-    </header>
+    </div>
 
-    <main class="admin-container">
-        
-        <section>
-            <h2 class="section-title"><i class="fas fa-plus-circle"></i> Publicar Novo Anúncio</h2>
+    <div id="admin-content">
+        <header>
+            <div class="logo-container" style="display: flex; align-items: center;">
+                <img src="logo.png" alt="F&D AUTOS" onerror="this.style.display='none'">
+                <span class="admin-badge">Painel Admin</span>
+            </div>
+            <a href="#" onclick="fazerLogout(event)" class="btn-sair"><i class="fas fa-sign-out-alt"></i> Sair do Painel</a>
+        </header>
+
+        <main class="admin-container">
             
-            <div class="form-card">
-                <form id="formCriar" onsubmit="salvarVeiculo(event)">
-                    <div class="form-grid">
-                        <div class="input-group full-width">
-                            <label>Placa do Veículo (Opcional)</label>
-                            <input type="text" id="placa" placeholder="Ex: ABC-1234" maxlength="8" oninput="formatarPlaca(this)">
-                        </div>
+            <section>
+                <h2 class="section-title"><i class="fas fa-plus-circle"></i> Publicar Novo Anúncio</h2>
+                
+                <div class="form-card">
+                    <form id="formCriar" onsubmit="salvarVeiculo(event)">
+                        <div class="form-grid">
+                            <div class="input-group full-width">
+                                <label>Placa do Veículo (Opcional)</label>
+                                <input type="text" id="placa" placeholder="Ex: ABC-1234" maxlength="8" oninput="formatarPlaca(this)">
+                            </div>
 
-                        <div class="input-group">
-                            <label>Marca</label>
-                            <select id="marca" class="select2-search" required style="width: 100%;">
-                                <option value="">Carregando marcas...</option>
-                            </select>
-                        </div>
+                            <div class="input-group">
+                                <label>Marca</label>
+                                <select id="marca" class="select2-search" required style="width: 100%;">
+                                    <option value="">Carregando marcas...</option>
+                                </select>
+                            </div>
 
-                        <div class="input-group">
-                            <label>Versão <i class="fas fa-pen" onclick="$('#versao_custom').toggle().focus()" style="cursor: pointer; color: var(--brand-orange); margin-left: 5px; font-size: 0.8rem;" title="Editar texto da versão"></i></label>
-                            <select id="versao" class="select2-search" required style="width: 100%;">
-                                <option value="">Selecione a marca primeiro...</option>
-                            </select>
-                            <input type="text" id="versao_custom" style="display: none; margin-top: 8px; border-color: var(--brand-orange);" placeholder="Edite o nome da versão como desejar...">
-                        </div>
+                            <div class="input-group">
+                                <label>Versão <i class="fas fa-pen" onclick="$('#versao_custom').toggle().focus()" style="cursor: pointer; color: var(--brand-orange); margin-left: 5px; font-size: 0.8rem;" title="Editar texto da versão"></i></label>
+                                <select id="versao" class="select2-search" required style="width: 100%;">
+                                    <option value="">Selecione a marca primeiro...</option>
+                                </select>
+                                <input type="text" id="versao_custom" style="display: none; margin-top: 8px; border-color: var(--brand-orange);" placeholder="Edite o nome da versão como desejar...">
+                            </div>
 
-                        <div class="input-group">
-                            <label>Tipo</label>
-                            <select id="tipo" class="select2-search" required style="width: 100%;">
-                                <option value="Hatch">Hatch</option>
-                                <option value="Sedan">Sedan</option>
-                                <option value="SUV">SUV</option>
-                                <option value="Picape">Picape</option>
-                                <option value="Minivan">Minivan</option>
-                                <option value="Utilitário">Utilitário</option>
-                            </select>
-                        </div>
+                            <div class="input-group">
+                                <label>Tipo</label>
+                                <select id="tipo" class="select2-search" required style="width: 100%;">
+                                    <option value="Hatch">Hatch</option>
+                                    <option value="Sedan">Sedan</option>
+                                    <option value="SUV">SUV</option>
+                                    <option value="Picape">Picape</option>
+                                    <option value="Minivan">Minivan</option>
+                                    <option value="Utilitário">Utilitário</option>
+                                </select>
+                            </div>
 
-                        <div class="input-group">
-                            <label>Ano (Auto-atualizável)</label>
-                            <select id="ano" class="select2-search" required style="width: 100%;">
-                            </select>
-                        </div>
+                            <div class="input-group">
+                                <label>Ano (Auto-atualizável)</label>
+                                <select id="ano" class="select2-search" required style="width: 100%;">
+                                </select>
+                            </div>
 
-                        <div class="input-group">
-                            <label>Preço</label>
-                            <input type="text" id="preco" placeholder="Ex: 58.900" required oninput="formatarNumero(this)">
-                            
-                            <div id="fipe-display-criar" style="display: none; align-items: center; gap: 8px; margin-top: 6px;">
-                                <div style="color: var(--text-gray); font-size: 0.85rem; font-weight: bold;">
-                                    <i class="fas fa-chart-line"></i> FIPE: <span id="fipe-valor-criar" style="color: white;">Consultando...</span>
+                            <div class="input-group">
+                                <label>Preço</label>
+                                <input type="text" id="preco" placeholder="Ex: 58.900" required oninput="formatarNumero(this)">
+                                
+                                <div id="fipe-display-criar" style="display: none; align-items: center; gap: 8px; margin-top: 6px;">
+                                    <div style="color: var(--text-gray); font-size: 0.85rem; font-weight: bold;">
+                                        <i class="fas fa-chart-line"></i> FIPE: <span id="fipe-valor-criar" style="color: white;">Consultando...</span>
+                                    </div>
+                                    <span id="fipe-variacao-criar" style="display: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;"></span>
                                 </div>
-                                <span id="fipe-variacao-criar" style="display: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;"></span>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Quilometragem</label>
+                                <input type="text" id="km" placeholder="Ex: 45.000" required oninput="formatarNumero(this)">
+                            </div>
+
+                            <div class="input-group">
+                                <label>Cor</label>
+                                <select id="cor" class="select2-search" required style="width: 100%;">
+                                    <option value="Branco">Branco</option>
+                                    <option value="Preto">Preto</option>
+                                    <option value="Prata">Prata</option>
+                                    <option value="Cinza">Cinza</option>
+                                    <option value="Vermelho">Vermelho</option>
+                                    <option value="Azul">Azul</option>
+                                    <option value="Vinho">Vinho</option>
+                                    <option value="Marrom">Marrom</option>
+                                    <option value="Verde">Verde</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Câmbio</label>
+                                <select id="cambio" class="select2-search" required style="width: 100%;">
+                                    <option value="Automático">Automático</option>
+                                    <option value="Manual">Manual</option>
+                                    <option value="CVT">CVT</option>
+                                    <option value="Automatizado">Automatizado</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Combustível</label>
+                                <select id="combustivel" class="select2-search" required style="width: 100%;">
+                                    <option value="Flex">Flex</option>
+                                    <option value="Gasolina">Gasolina</option>
+                                    <option value="Diesel">Diesel</option>
+                                    <option value="Híbrido">Híbrido</option>
+                                    <option value="Elétrico">Elétrico</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group full-width">
+                                <label>Descrição Detalhada</label>
+                                <textarea id="descricao" placeholder="Escreva os detalhes, estado de conservação..."></textarea>
                             </div>
                         </div>
 
-                        <div class="input-group">
-                            <label>Quilometragem</label>
-                            <input type="text" id="km" placeholder="Ex: 45.000" required oninput="formatarNumero(this)">
+                        <div class="input-group full-width" style="margin-top: 20px;">
+                            <label>Fotos do Veículo (Arraste para ordenar)</label>
+                            <div class="upload-area" onclick="document.getElementById('fotos-input-criar').click()">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Clique aqui para adicionar fotos</p>
+                            </div>
+                            <input type="file" id="fotos-input-criar" class="fotos-input" multiple accept="image/*" onchange="adicionarFotos(event, 'preview-criar', 'criar')">
+                            
+                            <div class="preview-fotos" id="preview-criar"></div>
                         </div>
 
-                        <div class="input-group">
-                            <label>Cor</label>
-                            <select id="cor" class="select2-search" required style="width: 100%;">
-                                <option value="Branco">Branco</option>
-                                <option value="Preto">Preto</option>
-                                <option value="Prata">Prata</option>
-                                <option value="Cinza">Cinza</option>
-                                <option value="Vermelho">Vermelho</option>
-                                <option value="Azul">Azul</option>
-                                <option value="Vinho">Vinho</option>
-                                <option value="Marrom">Marrom</option>
-                                <option value="Verde">Verde</option>
-                            </select>
-                        </div>
-
-                        <div class="input-group">
-                            <label>Câmbio</label>
-                            <select id="cambio" class="select2-search" required style="width: 100%;">
-                                <option value="Automático">Automático</option>
-                                <option value="Manual">Manual</option>
-                                <option value="CVT">CVT</option>
-                                <option value="Automatizado">Automatizado</option>
-                            </select>
-                        </div>
-
-                        <div class="input-group">
-                            <label>Combustível</label>
-                            <select id="combustivel" class="select2-search" required style="width: 100%;">
-                                <option value="Flex">Flex</option>
-                                <option value="Gasolina">Gasolina</option>
-                                <option value="Diesel">Diesel</option>
-                                <option value="Híbrido">Híbrido</option>
-                                <option value="Elétrico">Elétrico</option>
-                            </select>
-                        </div>
-
-                        <div class="input-group full-width">
-                            <label>Descrição Detalhada</label>
-                            <textarea id="descricao" placeholder="Escreva os detalhes, estado de conservação..."></textarea>
-                        </div>
-                    </div>
-
-                    <div class="input-group full-width" style="margin-top: 20px;">
-                        <label>Fotos do Veículo (Arraste para ordenar)</label>
-                        <div class="upload-area" onclick="document.getElementById('fotos-input-criar').click()">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Clique aqui para adicionar fotos</p>
-                        </div>
-                        <input type="file" id="fotos-input-criar" class="fotos-input" multiple accept="image/*" onchange="adicionarFotos(event, 'preview-criar', 'criar')">
-                        
-                        <div class="preview-fotos" id="preview-criar"></div>
-                    </div>
-
-                    <button type="submit" class="btn-primario" id="btnSalvarCriar">
-                        <i class="fas fa-save"></i> Salvar Anúncio
-                    </button>
-                </form>
-            </div>
-        </section>
-
-        <section style="margin-top: 40px;">
-            <h2 class="section-title"><i class="fas fa-car"></i> Veículos no Estoque</h2>
-            <div class="estoque-admin-grid" id="listaAdmin">
+                        <button type="submit" class="btn-primario" id="btnSalvarCriar">
+                            <i class="fas fa-save"></i> Salvar Anúncio
+                        </button>
+                    </form>
                 </div>
-        </section>
+            </section>
 
-    </main>
+            <section style="margin-top: 40px;">
+                <h2 class="section-title"><i class="fas fa-car"></i> Veículos no Estoque</h2>
+                <div class="estoque-admin-grid" id="listaAdmin">
+                    </div>
+            </section>
+
+        </main>
+    </div>
 
     <div id="modalEdicao" class="modal-overlay">
         <div class="modal-content">
@@ -417,10 +467,9 @@
     </div>
 
     <script>
-        // === COLE AQUI SUA CHAVE DO IMGBB ===
+        // === CONFIGURAÇÕES DA PONTE ===
         const IMGBB_API_KEY = "3ac59d1fa475dc7908c6c87837999bec";
 
-        // === COLE AQUI SUAS CREDENCIAIS DO FIREBASE ===
         const firebaseConfig = {
             apiKey: "AIzaSyA2-uY5lCh2qT6ifJLIR1iwTSS9yZB0x3c",
             authDomain: "fd-autos-site.firebaseapp.com",
@@ -430,15 +479,93 @@
             appId: "1:677976820456:web:a68041b68ef39d0eb3975d",
             measurementId: "G-4HV2K1KF5G"
         };
-        // Inicializa o Firebase (Sem Storage agora)
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        // Função que envia a foto base64 para a API do ImgBB
-        async function uploadParaImgBB(base64Data) {
-            // Remove o prefixo (ex: "data:image/png;base64,") para o ImgBB aceitar
-            const base64Limpo = base64Data.split(',')[1];
+        // ================= SISTEMA DE LOGIN =================
+        let listenerFirestore = null; // Para guardar o processo do banco de dados
+
+        // Preencher dados se "Lembrar meu login" foi marcado anteriormente
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('adminEmailSaved')) {
+                document.getElementById('loginEmail').value = localStorage.getItem('adminEmailSaved');
+                document.getElementById('loginSenha').value = localStorage.getItem('adminSenhaSaved');
+                document.getElementById('lembrarLogin').checked = true;
+            }
+        });
+
+        // Definindo a persistência para SESSION (Obriga a logar quando fechar a aba/navegador)
+        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // Usuário logado: Esconde login, mostra painel, carrega dados
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('admin-content').style.display = 'block';
+                    iniciarPainelAdmin();
+                } else {
+                    // Usuário deslogado: Mostra login, esconde painel, para de ler banco de dados
+                    document.getElementById('login-screen').style.display = 'flex';
+                    document.getElementById('admin-content').style.display = 'none';
+                    if(listenerFirestore) listenerFirestore(); 
+                }
+            });
+        });
+
+        async function fazerLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const senha = document.getElementById('loginSenha').value;
+            const lembrar = document.getElementById('lembrarLogin').checked;
+            const btn = document.getElementById('btnLogin');
             
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+            btn.disabled = true;
+
+            try {
+                await auth.signInWithEmailAndPassword(email, senha);
+                
+                // Salvar ou remover dados do login
+                if (lembrar) {
+                    localStorage.setItem('adminEmailSaved', email);
+                    localStorage.setItem('adminSenhaSaved', senha);
+                } else {
+                    localStorage.removeItem('adminEmailSaved');
+                    localStorage.removeItem('adminSenhaSaved');
+                }
+                
+            } catch(error) {
+                alert("Erro ao entrar. Verifique seu e-mail e senha.");
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no Painel';
+                btn.disabled = false;
+            }
+        }
+
+        async function recuperarSenha() {
+            const email = document.getElementById('loginEmail').value;
+            if(!email) {
+                alert("Por favor, digite seu e-mail no campo acima antes de clicar em 'Esqueci minha senha'.");
+                return;
+            }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                alert("E-mail de redefinição enviado! Verifique sua caixa de entrada.");
+            } catch(error) {
+                alert("Erro ao enviar o e-mail: " + error.message);
+            }
+        }
+
+        function fazerLogout(event) {
+            event.preventDefault();
+            auth.signOut().then(() => {
+                window.location.href = 'index.html'; // Volta para o site principal ao sair
+            });
+        }
+
+        // ================= FUNÇÕES DO PAINEL =================
+        async function uploadParaImgBB(base64Data) {
+            const base64Limpo = base64Data.split(',')[1];
             const formData = new FormData();
             formData.append("image", base64Limpo);
             
@@ -446,13 +573,8 @@
                 method: "POST",
                 body: formData
             });
-            
             const data = await response.json();
-            if(data.success) {
-                return data.data.url; // Retorna o link direto e definitivo da imagem
-            } else {
-                throw new Error("Erro no upload para ImgBB");
-            }
+            return data.success ? data.data.url : null;
         }
 
         function formatarNumero(input) {
@@ -471,9 +593,9 @@
 
         let valorFipeAtual = "";
         let variacaoFipeAtual = 0;
-        let estoqueMock = []; // Vai receber dados do Firebase Realtime
+        let estoqueMock = []; 
 
-        $(document).ready(function() {
+        function iniciarPainelAdmin() {
             $('.select2-search').select2({
                 placeholder: "Selecione ou digite...",
                 allowClear: true,
@@ -496,12 +618,11 @@
             gerarAnosDinamicos();
             carregarMarcasFIPE();
             
-            // Listener em tempo real do Firebase
-            db.collection('veiculos').onSnapshot(snapshot => {
+            listenerFirestore = db.collection('veiculos').orderBy('dataCriacao', 'desc').onSnapshot(snapshot => {
                 estoqueMock = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    data.id = doc.id; // Vincula ID do Firebase
+                    data.id = doc.id; 
                     estoqueMock.push(data);
                 });
                 renderizarEstoque();
@@ -535,7 +656,7 @@
                 const texto = $('#edit_versao option:selected').text();
                 if(texto && $(this).val()) $('#edit_versao_custom').val(texto).show();
             });
-        });
+        }
 
         async function buscarPrecoFipe() {
             const marcaId = $('#marca').val();
@@ -658,7 +779,7 @@
                 img.classList.add('preview-item');
                 
                 const btnRemove = document.createElement('button');
-                btnRemove.innerHTML = '&times;';
+                btnRemove.innerHTML = '×';
                 btnRemove.classList.add('btn-remove-foto');
                 btnRemove.type = 'button'; 
                 btnRemove.onclick = function(e) {
@@ -713,15 +834,9 @@
 
         async function salvarVeiculo(event) {
             event.preventDefault();
-            
-            if(!IMGBB_API_KEY || IMGBB_API_KEY === "SUA_CHAVE_AQUI") {
-                alert("Por favor, adicione sua chave do ImgBB no código para poder salvar imagens!");
-                return;
-            }
-
             const btnSalvar = document.getElementById('btnSalvarCriar');
             btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando para ImgBB...';
+            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando Fotos...';
 
             const marcaText = $('#marca option:selected').text() || $('#marca').val();
             const versaoCustom = document.getElementById('versao_custom');
@@ -731,11 +846,10 @@
             const placaVal = document.getElementById('placa').value;
 
             try {
-                // Upload das fotos para a API ImgBB
                 const fotoUrls = [];
                 for (let i = 0; i < fotosCriar.length; i++) {
                     const url = await uploadParaImgBB(fotosCriar[i].dataUrl);
-                    fotoUrls.push(url);
+                    if(url) fotoUrls.push(url);
                 }
 
                 const novoVeiculo = {
@@ -754,12 +868,11 @@
                     descricao: document.getElementById('descricao').value,
                     fipeValor: valorFipeAtual,
                     fipeVariacao: variacaoFipeAtual,
-                    fotos: fotoUrls, // URLs geradas pelo ImgBB
+                    fotos: fotoUrls,
                     status: 'rascunho',
                     dataCriacao: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // Salva no Banco de Dados Firestore
                 await db.collection('veiculos').add(novoVeiculo);
                 
                 document.getElementById('formCriar').reset();
@@ -773,7 +886,7 @@
                 
             } catch (error) {
                 console.error("Erro ao salvar:", error);
-                alert("Erro ao salvar. Verifique sua chave do ImgBB e as regras do Firebase Firestore.");
+                alert("Erro ao salvar. Verifique sua chave do ImgBB e conexões.");
             } finally {
                 btnSalvar.disabled = false;
                 btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Anúncio';
@@ -790,7 +903,7 @@
             const container = document.getElementById('listaAdmin');
             container.innerHTML = '';
 
-            [...estoqueMock].reverse().forEach(v => {
+            [...estoqueMock].forEach(v => {
                 const imgCapa = v.fotos && v.fotos.length > 0 ? v.fotos[0] : 'https://via.placeholder.com/800x600?text=Sem+Foto';
                 const statusClass = v.status === 'publicado' ? 'publicado' : 'rascunho';
                 const btnPubText = v.status === 'publicado' ? '<i class="fas fa-cloud-download-alt"></i> Despublicar' : '<i class="fas fa-cloud-upload-alt"></i> Publicar';
@@ -913,7 +1026,7 @@
             
             const btnSalvar = document.getElementById('btnSalvarEdicao');
             btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando para ImgBB...';
 
             const id = document.getElementById('edit_id').value;
             const veiculoIndex = estoqueMock.findIndex(v => v.id === id);
@@ -924,12 +1037,10 @@
                     for (let i = 0; i < fotosEditar.length; i++) {
                         const fileData = fotosEditar[i].dataUrl;
                         if (fileData.startsWith('http')) {
-                            // Já é um link externo (do ImgBB)
                             fotoUrls.push(fileData);
                         } else {
-                            // Nova foto para enviar pro ImgBB
                             const url = await uploadParaImgBB(fileData);
-                            fotoUrls.push(url);
+                            if(url) fotoUrls.push(url);
                         }
                     }
 
