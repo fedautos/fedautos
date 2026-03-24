@@ -253,7 +253,12 @@
                         <div class="form-grid">
                             <div class="input-group full-width">
                                 <label>Placa do Veículo (Opcional)</label>
-                                <input type="text" id="placa" placeholder="Ex: ABC-1234" maxlength="8" oninput="formatarPlaca(this)">
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="placa" placeholder="Ex: ABC-1234" maxlength="8" oninput="formatarPlaca(this)" style="flex: 1;">
+                                    <button type="button" onclick="consultarPlaca(this)" style="background: #2d333b; color: var(--brand-orange); border: 1px solid var(--brand-orange); padding: 0 15px; border-radius: 6px; cursor: pointer; transition: 0.3s;" title="Consultar dados pela placa">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="input-group">
@@ -390,7 +395,12 @@
                 <div class="form-grid">
                     <div class="input-group full-width">
                         <label>Placa do Veículo (Opcional)</label>
-                        <input type="text" id="edit_placa" maxlength="8" oninput="formatarPlaca(this)">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="edit_placa" maxlength="8" oninput="formatarPlaca(this)" style="flex: 1;">
+                            <button type="button" onclick="consultarPlaca(this)" style="background: #2d333b; color: var(--brand-orange); border: 1px solid var(--brand-orange); padding: 0 15px; border-radius: 6px; cursor: pointer; transition: 0.3s;" title="Consultar dados pela placa">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="input-group">
@@ -479,7 +489,7 @@
     <script>
         // === CONFIGURAÇÕES DA PONTE ===
         const IMGBB_API_KEY = "3ac59d1fa475dc7908c6c87837999bec";
-        const GEMINI_API_KEY = "AIzaSyD4TmH2u4WipQ2dQR368UnYUsfQbfrOtXY"; // Chave adicionada aqui
+        const GEMINI_API_KEY = "AIzaSyD4TmH2u4WipQ2dQR368UnYUsfQbfrOtXY"; 
 
         const firebaseConfig = {
             apiKey: "AIzaSyA2-uY5lCh2qT6ifJLIR1iwTSS9yZB0x3c",
@@ -1084,6 +1094,64 @@
             }
         }
 
+        // ================= CONSULTA DE PLACA =================
+        async function consultarPlaca(botaoHtml) {
+            const formContext = botaoHtml.closest('form').id;
+            const prefixo = formContext === 'formEditar' ? 'edit_' : '';
+            const inputPlaca = document.getElementById(`${prefixo}placa`);
+            const placa = inputPlaca.value.replace('-', '').toUpperCase();
+
+            if (placa.length < 7) {
+                alert("Digite a placa completa para consultar.");
+                return;
+            }
+
+            const originalIcon = botaoHtml.innerHTML;
+            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            botaoHtml.disabled = true;
+
+            try {
+                const response = await fetch(`https://wdapi2.com.br/consulta/${placa}/806c99c585c5c17983c27e85295982e5`);
+                const data = await response.json();
+
+                if (data.status === "1") {
+                    // Preencher a Cor
+                    const corEncontrada = data.cor.charAt(0).toUpperCase() + data.cor.slice(1).toLowerCase();
+                    if ($(`#${prefixo}cor option`).filter(function() { return $(this).text() === corEncontrada; }).length) {
+                        $(`#${prefixo}cor`).val(corEncontrada).trigger('change');
+                    }
+
+                    // Preencher o Ano
+                    const anoModelo = data.ano_modelo + "/" + data.ano_modelo;
+                    $(`#${prefixo}ano`).val(anoModelo).trigger('change');
+
+                    // Selecionar a Marca
+                    const marcaVeiculo = data.marca.split('/')[0].trim();
+                    $(`#${prefixo}marca option`).each(function() {
+                        if ($(this).text().toUpperCase().includes(marcaVeiculo.toUpperCase())) {
+                            $(this).prop('selected', true).trigger('change');
+                        }
+                    });
+
+                    // Inserir a versão no campo customizado
+                    setTimeout(() => {
+                        const modeloCompleto = data.modelo;
+                        $(`#${prefixo}versao_custom`).val(modeloCompleto).show();
+                    }, 1000);
+
+                    alert("Dados do veículo recuperados com sucesso!");
+                } else {
+                    alert("Placa não encontrada ou limite de consultas grátis atingido.");
+                }
+            } catch (error) {
+                console.error("Erro na consulta de placa:", error);
+                alert("Erro ao consultar placa. Verifique sua conexão.");
+            } finally {
+                botaoHtml.innerHTML = originalIcon;
+                botaoHtml.disabled = false;
+            }
+        }
+
         // ================= GERADOR DE DESCRIÇÃO POR I.A =================
         async function gerarDescricaoIA(botaoHtml) {
             const formContext = botaoHtml.closest('form').id;
@@ -1116,8 +1184,8 @@
             
             const templateDesejado = `Ótimo veículo, muito econômico e confortável\n✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
 
-            // Prompt atualizado para pedir uma descrição mais rica e detalhada
-            const prompt = `Você é um vendedor de carros experiente e persuasivo. Escreva uma descrição detalhada, atraente e vendedora para o seguinte veículo, destacando seus atributos (como cor, tipo de câmbio, categoria e motorização):\n\n${dadosCarro}\n\nApós o texto de introdução detalhado, adicione EXATAMENTE os seguintes tópicos no final, sem alterar nenhuma palavra ou emoji:\n\n${templateDesejado}`;
+            // Prompt atualizado para pedir a lista de opcionais com emojis
+            const prompt = `Você é um vendedor de carros experiente e persuasivo. Escreva uma descrição detalhada, atraente e vendedora para o seguinte veículo:\n\n${dadosCarro}\n\nInclua na descrição uma lista formatada em tópicos com os principais opcionais e equipamentos de série que esta versão específica possui (ex: ar-condicionado, direção, vidros elétricos, multimídia, rodas de liga leve, etc). Use emojis relevantes em cada item da lista para dar mais vida ao anúncio.\n\nIMPORTANTE: Após a descrição e a lista de opcionais, adicione EXATAMENTE os seguintes tópicos no final, sem alterar nenhuma palavra ou emoji:\n\n${templateDesejado}`;
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
@@ -1139,8 +1207,8 @@
             } catch (error) {
                 console.error("Erro na I.A.:", error);
                 
-                // Backup caso a API falhe, agora também enriquecido com os novos dados
-                const textoFallback = `Excelente oportunidade! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}. Veículo do tipo ${tipo}, equipado com câmbio ${cambio} e motorização a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\n\n${templateDesejado}`;
+                // Backup da IA enriquecido com os opcionais
+                const textoFallback = `Excelente oportunidade! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}. Veículo do tipo ${tipo}, equipado com câmbio ${cambio} e motorização a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\n\n✨ Principais Opcionais:\n🔹 Ar-condicionado\n🔹 Direção assistida\n🔹 Vidros e travas elétricas\n🔹 Som/Multimídia\n\n${templateDesejado}`;
                 document.getElementById(`${prefixo}descricao`).value = textoFallback;
             } finally {
                 botaoHtml.innerHTML = textoOriginalBtn;
