@@ -80,7 +80,7 @@
             background: var(--dark-bg); color: white; font-size: 1rem; outline: none; width: 100%; transition: 0.3s;
         }
         input:focus, select:focus, textarea:focus { border-color: var(--brand-orange); box-shadow: 0 0 5px rgba(244,129,63,0.3); }
-        textarea { resize: vertical; min-height: 120px; }
+        textarea { resize: vertical; min-height: 150px; }
 
         /* Customização do Select2 */
         .select2-container--default .select2-selection--single {
@@ -134,12 +134,14 @@
         
         /* Badges da Imagem */
         .img-container { position: relative; width: 100%; height: 180px; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; border-bottom: 1px solid #2d333b; }
-        .status-badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid currentColor; z-index: 5; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; border-bottom: 1px solid #2d333b; cursor: pointer; transition: opacity 0.3s; }
+        .img-container img:hover { opacity: 0.9; }
+        
+        .status-badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid currentColor; z-index: 5; pointer-events: none;}
         .status-badge.publicado { color: #25d366; border-color: #25d366; }
         .status-badge.rascunho { color: var(--text-gray); border-color: var(--text-gray); }
-        .fotos-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; z-index: 5; }
-        .placa-badge { position: absolute; bottom: 10px; left: 10px; background: #e0e0e0; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; z-index: 5; text-transform: uppercase; border-top: 4px solid #003399; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .fotos-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; z-index: 5; pointer-events: none;}
+        .placa-badge { position: absolute; bottom: 10px; left: 10px; background: #e0e0e0; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; z-index: 5; text-transform: uppercase; border-top: 4px solid #003399; box-shadow: 0 2px 5px rgba(0,0,0,0.5); pointer-events: none;}
 
         .admin-card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; }
         .admin-card-body h3 { font-size: 1.1rem; margin-bottom: 5px; color: white; }
@@ -346,7 +348,7 @@
                                 <label style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                                     Descrição Detalhada
                                     <button type="button" onclick="gerarDescricaoIA(this)" style="background: linear-gradient(45deg, #f4813f, #ff4c4c); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                                        <i class="fas fa-magic"></i> Gerar por I.A.
+                                        <i class="fas fa-magic"></i> Gerar por I.A. (Detalhado)
                                     </button>
                                 </label>
                                 <textarea id="descricao" placeholder="Escreva os detalhes, estado de conservação..."></textarea>
@@ -451,7 +453,7 @@
                         <label style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             Descrição Detalhada
                             <button type="button" onclick="gerarDescricaoIA(this)" style="background: linear-gradient(45deg, #f4813f, #ff4c4c); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                                <i class="fas fa-magic"></i> Gerar por I.A.
+                                <i class="fas fa-magic"></i> Gerar por I.A. (Detalhado)
                             </button>
                         </label>
                         <textarea id="edit_descricao"></textarea>
@@ -477,7 +479,6 @@
     </div>
 
     <script>
-        // === CONFIGURAÇÕES DA PONTE ===
         const IMGBB_API_KEY = "3ac59d1fa475dc7908c6c87837999bec";
         const GEMINI_API_KEY = "AIzaSyD4TmH2u4WipQ2dQR368UnYUsfQbfrOtXY"; 
 
@@ -495,7 +496,6 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ================= SISTEMA DE LOGIN =================
         let listenerFirestore = null; 
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -571,7 +571,15 @@
 
         // ================= FUNÇÕES DO PAINEL =================
         
-        // --- FUNÇÃO DO IMGBB APRIMORADA ---
+        function formatarMarca(nome) {
+            if (!nome) return "";
+            let n = nome.toUpperCase();
+            if (n.includes('VW') || n.includes('VOLKSWAGEM') || n === 'VW - VOLKSWAGEN') {
+                return 'Volkswagen';
+            }
+            return nome;
+        }
+
         async function uploadParaImgBB(base64Data) {
             const base64Limpo = base64Data.split(',')[1];
             const formData = new FormData();
@@ -872,7 +880,7 @@
                 const novoVeiculo = {
                     placa: placaVal,
                     marcaId: document.getElementById('marca').value,
-                    marca: marcaText,
+                    marca: formatarMarca(marcaText),
                     versaoId: document.getElementById('versao').value,
                     versao: versaoText,
                     tipo: document.getElementById('tipo').value,
@@ -903,7 +911,7 @@
                 
             } catch (error) {
                 console.error("Erro ao salvar:", error);
-                alert("ERRO DETALHADO: " + error.message + "\n\nSe disser 'Missing or insufficient permissions', o erro está nas Regras do seu Firebase Firestore. Se disser algo sobre ImgBB, a imagem pode estar corrompida ou ser grande demais.");
+                alert("ERRO DETALHADO: " + error.message);
             } finally {
                 btnSalvar.disabled = false;
                 btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Anúncio';
@@ -914,6 +922,26 @@
             if (novoPreco.trim() !== "") {
                 await db.collection('veiculos').doc(id).update({ preco: novoPreco });
             }
+        }
+
+        // Sistema de Hover (Preview) no Admin
+        let previewTimersAdmin = {};
+        function startPreview(element, veiculoId) {
+            const v = estoqueMock.find(veic => veic.id === veiculoId);
+            if(!v || !v.fotos || v.fotos.length <= 1) return;
+            let idx = 1;
+            previewTimersAdmin[veiculoId] = setInterval(() => {
+                element.src = v.fotos[idx];
+                idx = (idx + 1) % v.fotos.length;
+            }, 1200);
+        }
+        function stopPreview(element, veiculoId) {
+            if(previewTimersAdmin[veiculoId]) {
+                clearInterval(previewTimersAdmin[veiculoId]);
+                delete previewTimersAdmin[veiculoId];
+            }
+            const v = estoqueMock.find(veic => veic.id === veiculoId);
+            if(v && v.fotos) element.src = v.fotos[0];
         }
 
         function renderizarEstoque() {
@@ -927,6 +955,8 @@
                 const btnPubClass = v.status === 'publicado' ? 'btn-despublicar' : 'btn-publicar';
                 const placaText = v.placa ? v.placa.toUpperCase() : 'N/I';
                 const qtdFotos = v.fotos ? v.fotos.length : 0;
+                
+                const anoFormatado = v.ano.includes('/') ? v.ano.split('/').pop() : v.ano;
 
                 let blocoFipe = '';
                 if (v.fipeValor) {
@@ -947,11 +977,16 @@
                         <span class="status-badge ${statusClass}">${v.status}</span>
                         <span class="fotos-badge"><i class="fas fa-camera"></i> ${qtdFotos}</span>
                         <span class="placa-badge"><i class="fas fa-id-card"></i> ${placaText}</span>
-                        <img src="${imgCapa}" alt="${v.marca} ${v.versao}">
+                        <img src="${imgCapa}" 
+                             alt="${v.marca} ${v.versao}"
+                             onmouseenter="startPreview(this, '${v.id}')"
+                             onmouseleave="stopPreview(this, '${v.id}')"
+                             ontouchstart="startPreview(this, '${v.id}')"
+                             ontouchend="stopPreview(this, '${v.id}')">
                     </div>
                     
                     <div class="admin-card-body">
-                        <h3>${v.marca} ${v.versao} (${v.ano})</h3>
+                        <h3>${formatarMarca(v.marca)} ${v.versao} (${anoFormatado})</h3>
                         
                         <div class="details-info">
                             <span title="Quilometragem"><i class="fas fa-tachometer-alt"></i> ${v.km}</span>
@@ -1069,7 +1104,7 @@
                     const dadosAtualizados = {
                         placa: document.getElementById('edit_placa').value,
                         marcaId: $('#edit_marca').val(),
-                        marca: $('#edit_marca option:selected').text() || $('#edit_marca').val(),
+                        marca: formatarMarca($('#edit_marca option:selected').text() || $('#edit_marca').val()),
                         versaoId: $('#edit_versao').val(),
                         versao: versaoTextDef,
                         tipo: $('#edit_tipo').val(),
@@ -1100,13 +1135,16 @@
             const formContext = botaoHtml.closest('form').id;
             const prefixo = formContext === 'formEditar' ? 'edit_' : '';
 
-            // Coletar todos os dados possíveis do formulário para enriquecer a descrição
-            const marca = $(`#${prefixo}marca option:selected`).text() || '';
+            let marca = $(`#${prefixo}marca option:selected`).text() || '';
+            marca = formatarMarca(marca);
+
             const versaoCustom = document.getElementById(`${prefixo}versao_custom`);
             const versao = (versaoCustom && versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') 
                             ? versaoCustom.value 
                             : ($(`#${prefixo}versao option:selected`).text() || '');
-            const ano = document.getElementById(`${prefixo}ano`).value || '';
+            let ano = document.getElementById(`${prefixo}ano`).value || '';
+            ano = ano.includes('/') ? ano.split('/').pop() : ano; 
+            
             const km = document.getElementById(`${prefixo}km`).value || '';
             const preco = document.getElementById(`${prefixo}preco`).value || '';
             const tipo = document.getElementById(`${prefixo}tipo`).value || '';
@@ -1125,8 +1163,8 @@
 
             const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
 
-            // NOVO PROMPT: Otimizado para atuar como um Vendedor Persuasivo
-            const prompt = `Aja como um vendedor de carros seminovos altamente persuasivo, experiente e confiável. Crie uma descrição atrativa para Instagram e Facebook focada em gerar desejo de compra para o seguinte veículo:\n\n` +
+            // PROMPT APRIMORADO (SUPER VENDEDOR)
+            const prompt = `Atue como o melhor e mais experiente vendedor de carros seminovos da loja "F&D Autos". Crie uma descrição incrivelmente detalhada, persuasiva e formatada com emojis para o seguinte veículo:\n\n` +
             `- Veículo: ${marca} ${versao}\n` +
             `- Ano: ${ano}\n` +
             `- Quilometragem: ${km} km\n` +
@@ -1135,7 +1173,12 @@
             `- Cor: ${cor}\n` +
             `- Câmbio: ${cambio}\n` +
             `- Combustível: ${combustivel}\n\n` +
-            `Escreva um texto empolgante (cerca de 2 a 3 parágrafos curtos) destacando o conforto, economia e procedência do carro. O tom deve ser vendedor, porém honesto. Após esse texto introdutório, você DEVE OBRIGATORIAMENTE incluir a seguinte lista exata de benefícios no final da resposta (não altere os emojis nem as palavras desta lista):\n\n` +
+            `INSTRUÇÕES DE CRIAÇÃO:\n` +
+            `1. 🌟 Título Chamativo: Crie uma frase de impacto no início do texto.\n` +
+            `2. 📝 Parágrafo de Apresentação: Descreva o carro de forma envolvente. Destaque o conforto, a confiabilidade da marca e o excelente custo-benefício.\n` +
+            `3. ✨ Principais Equipamentos (DEDUÇÃO INTELIGENTE): Baseado no modelo e versão (${marca} ${versao}), deduza os opcionais e itens de série MAIS PROVÁVEIS que este carro tem. Faça uma lista em formato de tópicos (usando o emoji ✅), incluindo itens como Direção Elétrica/Hidráulica, Ar-condicionado, Vidros Elétricos, Travas Elétricas, Central Multimídia, Computador de Bordo, Freios ABS, etc. Deixe a lista rica e coerente com o modelo.\n` +
+            `4. 🛡️ Qualidade e Procedência: Destaque o estado de conservação impecável do veículo.\n` +
+            `5. OBRIGATÓRIO: Termine o texto incluindo EXATAMENTE a lista abaixo, mantendo os emojis e a estrutura linha a linha:\n\n` +
             `${templateDesejado}`;
 
             try {
@@ -1157,9 +1200,7 @@
                 }
             } catch (error) {
                 console.error("Erro na I.A.:", error);
-                
-                // Backup caso a API falhe, agora também enriquecido com os novos dados
-                const textoFallback = `Excelente oportunidade! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}. Veículo do tipo ${tipo}, equipado com câmbio ${cambio} e motorização a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\nÓtimo veículo, muito econômico e confortável\n\n${templateDesejado}`;
+                const textoFallback = `🚗 Oportunidade Incrível! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}.\n\nUm veículo do tipo ${tipo}, com câmbio ${cambio} e motor a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\n\n✨ Destaques prováveis do modelo:\n✅ Ar-condicionado\n✅ Direção assistida\n✅ Vidros e travas elétricas\n\n${templateDesejado}`;
                 document.getElementById(`${prefixo}descricao`).value = textoFallback;
             } finally {
                 botaoHtml.innerHTML = textoOriginalBtn;
