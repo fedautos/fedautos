@@ -152,7 +152,8 @@
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
         .card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid #2d333b; transition: 0.4s; display: flex; flex-direction: column;}
         .card:hover { transform: translateY(-8px); border-color: var(--brand-orange); }
-        .card img.foto-carro { width: 100%; height: 220px; object-fit: cover; border-bottom: 1px solid #2d333b;}
+        .card img.foto-carro { width: 100%; height: 220px; object-fit: cover; border-bottom: 1px solid #2d333b; cursor: pointer; transition: opacity 0.3s; }
+        .card img.foto-carro:hover { opacity: 0.9; }
         .card-body { padding: 25px; display: flex; flex-direction: column; flex: 1;}
         .card-body h3 { display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin-bottom: 5px; }
         .card-body h3 img { width: 25px; height: 25px; object-fit: contain; }
@@ -177,6 +178,10 @@
             overflow: hidden; display: flex; align-items: center; justify-content: center; padding-top: 25px; 
         }
         .modal-galeria img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.2s ease-out; cursor: zoom-in; }
+        
+        /* Ajuste do cursor para Zoom e Arrasto */
+        .modal-galeria img.zoomed-in { cursor: grab !important; }
+        .modal-galeria img.zoomed-in.dragging { cursor: grabbing !important; transition: none; }
         
         .contador-fotos { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 20px; font-size: 1rem; font-weight: bold; z-index: 10; letter-spacing: 2px; border: 1px solid rgba(255,255,255,0.2); }
 
@@ -242,7 +247,6 @@
             nav { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 5px; justify-content: center; width: 100%; }
             .header-spacer { display: none; }
             
-            /* Ajuste de fundo para não bugar zoom em celulares */
             .hero { margin-top: 80px; height: auto; padding: 40px 5%; background-attachment: scroll; background-position: center top; }
             .hero h1 { font-size: 2rem; }
             .hero h2 { font-size: 1.2rem; }
@@ -258,6 +262,26 @@
 
             .modal-flex { flex-direction: column; }
             .modal-info { border-left: none; padding: 20px; } 
+            
+            #modalDescricao { 
+                word-wrap: break-word; 
+                overflow-wrap: break-word; 
+                white-space: pre-wrap; 
+                max-width: 100%; 
+                overflow: hidden;
+            }
+
+            .nav-galeria { 
+                padding: 10px 12px; 
+                font-size: 1.1rem; 
+                border-radius: 50%;
+                width: 40px; 
+                height: 40px; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+            }
+
             .modal-galeria { position: relative; top: 0; min-height: 350px; height: 350px; padding-top: 0; align-self: auto; } 
             .modal-content { height: auto; margin: 10px; max-height: 95vh; }
             
@@ -379,12 +403,12 @@
         <div class="modal-content">
             <span class="close-modal" onclick="fecharModal()">×</span>
             <div class="modal-flex">
-                <div class="modal-galeria" id="galeriaBox" ondblclick="togglePointZoom(event)">
+                <div class="modal-galeria" id="galeriaBox">
                     <button class="btn-expandir" onclick="event.stopPropagation(); toggleFullscreen(event)" title="Expandir/Reduzir">
                         <i class="fas fa-expand" id="iconExpandir"></i>
                     </button>
                     
-                    <img id="imgPrincipal" src="" alt="Foto">
+                    <img id="imgPrincipal" src="" alt="Foto" ondblclick="togglePointZoom(event)">
                     
                     <button class="nav-galeria" style="left:20px; z-index: 15;" onclick="event.stopPropagation(); mudarFoto(-1)"><i class="fas fa-chevron-left"></i></button>
                     <button class="nav-galeria" style="right:20px; z-index: 15;" onclick="event.stopPropagation(); mudarFoto(1)"><i class="fas fa-chevron-right"></i></button>
@@ -422,7 +446,7 @@
                                 <a id="shareWpp" href="#" target="_blank" class="btn-social" style="background:#25d366"><i class="fab fa-whatsapp"></i></a>
                                 <a id="shareFb" href="#" target="_blank" class="btn-social" style="background:#1877f2"><i class="fab fa-facebook-f"></i></a>
                                 <button id="shareIg" onclick="compartilharIG(event)" class="btn-social" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);"><i class="fab fa-instagram"></i></button>
-                                <div class="btn-social btn-copy" onclick="copiarLinkSEO()"><i class="fas fa-link"></i>  COPIAR LINK</div>
+                                <div class="btn-social btn-copy" onclick="copiarLinkSEO()"><i class="fas fa-link"></i> &nbsp;COPIAR LINK</div>
                             </div>
                         </div>
                     </div>
@@ -467,7 +491,6 @@
     <a href="https://wa.me/558132225291" class="wpp-float" target="_blank"><i class="fab fa-whatsapp"></i></a>
 
     <script>
-        // === CONFIGURAÇÕES DA PONTE INDEX (ATUALIZADO) ===
         const firebaseConfig = {
             apiKey: "AIzaSyA2-uY5lCh2qT6ifJLIR1iwTSS9yZB0x3c",
             authDomain: "fd-autos-site.firebaseapp.com",
@@ -477,7 +500,6 @@
             appId: "1:677976820456:web:a68041b68ef39d0eb3975d",
             measurementId: "G-4HV2K1KF5G"
         };
-        // Inicializa o Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -496,6 +518,13 @@
             "Citroen": "https://logodownload.org/wp-content/uploads/2014/09/Citroen-logo-1.png"
         };
 
+        function formatarMarca(marca) {
+            if (!marca) return "";
+            let m = marca.toUpperCase();
+            if (m.includes("VW") || m.includes("VOLKSWAGEM")) return "Volkswagen";
+            return marca;
+        }
+
         let veiculos = [];
         let vAtual = null, fotoIndex = 0;
         
@@ -505,7 +534,6 @@
         let direcaoOrdenacao = 'asc'; 
         let ordemAtual = null;
 
-        // Escuta apenas veículos com status 'publicado'
         function carregarEstoqueDados() {
             db.collection('veiculos')
               .where('status', '==', 'publicado')
@@ -515,11 +543,11 @@
                     const v = doc.data();
                     veiculos.push({
                         id: doc.id,
-                        nome: `${v.marca} ${v.versao}`, 
-                        marca: v.marca,
+                        nome: `${formatarMarca(v.marca)} ${v.versao}`, 
+                        marca: formatarMarca(v.marca),
                         tipo: v.tipo,
                         preco: `R$ ${v.preco}`,
-                        ano: v.ano,
+                        ano: v.ano.includes('/') ? v.ano.split('/').pop() : v.ano, 
                         km: v.km,
                         cambio: v.cambio,
                         combustivel: v.combustivel,
@@ -641,8 +669,8 @@
                         valA = parseFloat(a.preco.replace('R$ ', '').replace('.', '').replace(',', '.'));
                         valB = parseFloat(b.preco.replace('R$ ', '').replace('.', '').replace(',', '.'));
                     } else if (tipoOrdem === 'ano') {
-                        valA = parseInt(a.ano.split('/')[0]);
-                        valB = parseInt(b.ano.split('/')[0]);
+                        valA = parseInt(a.ano);
+                        valB = parseInt(b.ano);
                     } else if (tipoOrdem === 'km') {
                         valA = parseInt(a.km.replace(/[^\d]/g, ''));
                         valB = parseInt(b.km.replace(/[^\d]/g, ''));
@@ -675,10 +703,17 @@
                 
                 grid.innerHTML += `
                     <div class="card">
-                        <img src="${v.fotos[0]}" alt="${v.nome}" class="foto-carro">
+                        <img src="${v.fotos[0]}" 
+                             alt="${v.nome}" 
+                             class="foto-carro" 
+                             onclick="abrirAnuncio(${originalIndex})" 
+                             onmouseenter="startPreview(this, ${originalIndex})" 
+                             onmouseleave="stopPreview(this, ${originalIndex})"
+                             ontouchstart="startPreview(this, ${originalIndex})" 
+                             ontouchend="stopPreview(this, ${originalIndex})">
                         <div class="card-body">
                             <h3>${logoHtml} ${v.nome}</h3>
-                            <div style="margin: 10px 0;"><span class="tag-ano">${v.ano.split('/')[0]}</span></div>
+                            <div style="margin: 10px 0;"><span class="tag-ano">${v.ano}</span></div>
                             <span class="tags-extra">
                                 <i class="fas fa-tachometer-alt"></i> ${v.km} | <i class="fas fa-palette"></i> ${v.cor}<br>
                                 <i class="fas fa-cog"></i> ${v.cambio} | <i class="fas fa-gas-pump"></i> ${v.combustivel}
@@ -690,6 +725,24 @@
             });
 
             renderizarPaginacao();
+        }
+
+        let previewTimers = {};
+        function startPreview(element, veiculoIndex) {
+            const fotos = veiculos[veiculoIndex].fotos;
+            if(!fotos || fotos.length <= 1) return;
+            let idx = 1;
+            previewTimers[veiculoIndex] = setInterval(() => {
+                element.src = fotos[idx];
+                idx = (idx + 1) % fotos.length;
+            }, 1200); 
+        }
+        function stopPreview(element, veiculoIndex) {
+            if(previewTimers[veiculoIndex]) {
+                clearInterval(previewTimers[veiculoIndex]);
+                delete previewTimers[veiculoIndex];
+            }
+            element.src = veiculos[veiculoIndex].fotos[0];
         }
 
         function renderizarPaginacao() {
@@ -718,13 +771,12 @@
             resetZoom();
             if(isFullscreen) toggleFullscreen(); 
 
-            const anoUnico = vAtual.ano.split('/')[0];
             const marcaFormatada = Object.keys(logosMarcas).find(key => key.toLowerCase() === vAtual.marca.toLowerCase());
             const logoHtml = marcaFormatada ? `<img src="${logosMarcas[marcaFormatada]}" alt="${vAtual.marca}">` : '';
             
             document.getElementById('modalTitulo').innerHTML = `${logoHtml} ${vAtual.nome}`;
             document.getElementById('modalPreco').innerText = vAtual.preco;
-            document.getElementById('txtAno').innerText = anoUnico;
+            document.getElementById('txtAno').innerText = vAtual.ano;
             document.getElementById('txtKm').innerText = vAtual.km;
             document.getElementById('txtCambio').innerText = vAtual.cambio;
             document.getElementById('txtCombustivel').innerText = vAtual.combustivel;
@@ -737,14 +789,14 @@
             window.history.replaceState(null, '', parametroUrl);
             const urlAtual = window.location.href;
 
-            document.getElementById('og-title').content = `${vAtual.nome} - ${anoUnico} | F&D Autos`;
+            document.getElementById('og-title').content = `${vAtual.nome} - ${vAtual.ano} | F&D Autos`;
             document.getElementById('og-desc').content = `Por apenas ${vAtual.preco}. ${vAtual.desc ? vAtual.desc.substring(0, 80) : ''}...`;
             document.getElementById('og-image').content = vAtual.fotos[0];
             document.getElementById('og-url').content = urlAtual;
 
-            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=Olá, tenho interesse no ${vAtual.nome} (${anoUnico}) no valor de ${vAtual.preco}`;
+            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=Olá, tenho interesse no ${vAtual.nome} (${vAtual.ano}) no valor de ${vAtual.preco}`;
             
-            const textoCompartilhar = `Confira este *${vAtual.nome}* (${anoUnico}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: `;
+            const textoCompartilhar = `Confira este *${vAtual.nome}* (${vAtual.ano}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: `;
             document.getElementById('shareWpp').href = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhar)}` + encodeURIComponent(urlAtual);
             document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(urlAtual)}`;
 
@@ -775,35 +827,95 @@
             if(isFullscreen) toggleFullscreen();
         }
 
-        /* --- Sistema de Zoom e Fullscreen --- */
+        /* --- Sistema de Zoom e Fullscreen com Arrastar (Pan) CORRIGIDO --- */
         let isZoomed = false;
         let isFullscreen = false;
+        let zoomScaleObj = 2.5;
+        let dragX = 0, dragY = 0, startX = 0, startY = 0;
+        let isDragging = false;
+
         const imgPrincipal = document.getElementById('imgPrincipal');
         const galeriaBox = document.getElementById('galeriaBox');
 
         function resetZoom() {
             isZoomed = false;
+            isDragging = false;
+            dragX = 0; dragY = 0;
             if(imgPrincipal) {
-                imgPrincipal.style.transform = "scale(1)";
                 imgPrincipal.style.transformOrigin = "center center";
+                imgPrincipal.style.transform = "scale(1) translate(0px, 0px)";
                 imgPrincipal.style.cursor = "zoom-in";
+                imgPrincipal.classList.remove('zoomed-in');
+                imgPrincipal.classList.remove('dragging');
             }
         }
 
         function togglePointZoom(e) {
-            isZoomed = !isZoomed;
-            if (isZoomed) {
-                const rect = imgPrincipal.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 100;
-                const y = ((e.clientY - rect.top) / rect.height) * 100;
+            if (!isZoomed) {
+                isZoomed = true;
                 
-                imgPrincipal.style.transformOrigin = `${x}% ${y}%`;
-                imgPrincipal.style.cursor = "zoom-out";
-                imgPrincipal.style.transform = `scale(2.5)`;
+                // Pega coordenadas da imagem para saber exatamente onde focar
+                const rect = imgPrincipal.getBoundingClientRect();
+                let clickX = e.clientX || (e.touches && e.touches[0].clientX);
+                let clickY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                const xPercent = ((clickX - rect.left) / rect.width) * 100;
+                const yPercent = ((clickY - rect.top) / rect.height) * 100;
+
+                imgPrincipal.style.transformOrigin = `${xPercent}% ${yPercent}%`;
+                imgPrincipal.classList.add('zoomed-in');
+                imgPrincipal.style.transform = `scale(${zoomScaleObj}) translate(0px, 0px)`;
             } else {
                 resetZoom();
             }
         }
+
+        // Impede comportamento nativo de "arrastar fantasma"
+        imgPrincipal.addEventListener('dragstart', (e) => e.preventDefault());
+
+        // Lógica de Arrastar com Mouse
+        imgPrincipal.addEventListener('mousedown', (e) => {
+            if(!isZoomed) return;
+            e.preventDefault(); 
+            isDragging = true;
+            imgPrincipal.classList.add('dragging');
+            startX = e.clientX - dragX;
+            startY = e.clientY - dragY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging || !isZoomed) return;
+            dragX = e.clientX - startX;
+            dragY = e.clientY - startY;
+            imgPrincipal.style.transform = `scale(${zoomScaleObj}) translate(${dragX/zoomScaleObj}px, ${dragY/zoomScaleObj}px)`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                imgPrincipal.classList.remove('dragging');
+            }
+        });
+
+        // Lógica de Arrastar com Touch (Celular)
+        imgPrincipal.addEventListener('touchstart', (e) => {
+            if(!isZoomed) return;
+            isDragging = true;
+            startX = e.touches[0].clientX - dragX;
+            startY = e.touches[0].clientY - dragY;
+        });
+
+        galeriaBox.addEventListener('touchmove', (e) => {
+            if(!isDragging || !isZoomed) return;
+            e.preventDefault(); 
+            dragX = e.touches[0].clientX - startX;
+            dragY = e.touches[0].clientY - startY;
+            imgPrincipal.style.transform = `scale(${zoomScaleObj}) translate(${dragX/zoomScaleObj}px, ${dragY/zoomScaleObj}px)`;
+        }, {passive: false});
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
 
         function toggleFullscreen(e) {
             if(e) e.stopPropagation();
@@ -830,8 +942,7 @@
 
         function gerarTextoSEO() {
             if(!vAtual) return window.location.href;
-            const anoUnico = vAtual.ano.split('/')[0];
-            return `Confira este *${vAtual.nome}* (${anoUnico}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: ${window.location.href}`;
+            return `Confira este *${vAtual.nome}* (${vAtual.ano}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: ${window.location.href}`;
         }
 
         function copiarLinkSEO() {
