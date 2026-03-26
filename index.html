@@ -803,9 +803,14 @@
             window.history.replaceState(null, '', parametroUrl);
             
             // O LINK DA VERCEL API PARA COMPARTILHAMENTO
+            // Monta o link da Vercel que gera a foto
             const urlCompartilhamento = `https://fedautos.vercel.app/api/carro?id=${vAtual.id}`;
-
-            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=Olá, tenho interesse no ${vAtual.nome} (${vAtual.ano}) no valor de ${vAtual.preco}`;
+            
+            // Monta o texto incluindo o link no final (o WhatsApp vai ler esse link e puxar a foto)
+            const textoInteresse = `Olá, tenho interesse no *${vAtual.nome}* (${vAtual.ano}) no valor de *${vAtual.preco}*.\n\nVeja o anúncio aqui: ${urlCompartilhamento}`;
+            
+            // Aplica no botão
+            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=${encodeURIComponent(textoInteresse)}`;
             
             const textoCompartilhar = `Confira este *${vAtual.nome}* (${vAtual.ano}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: `;
             
