@@ -177,11 +177,11 @@
             position: sticky; top: 60px; height: calc(100vh - 120px); align-self: flex-start;
             overflow: hidden; display: flex; align-items: center; justify-content: center; padding-top: 25px; 
         }
-        .modal-galeria img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.2s ease-out; cursor: zoom-in; }
+        .modal-galeria img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.2s ease-out; transform-origin: center center; }
         
         /* Ajuste do cursor para Zoom e Arrasto */
         .modal-galeria img.zoomed-in { cursor: grab !important; }
-        .modal-galeria img.zoomed-in.dragging { cursor: grabbing !important; transition: none; }
+        .modal-galeria img.zoomed-in:active { cursor: grabbing !important; transition: none; }
         
         .contador-fotos { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 20px; font-size: 1rem; font-weight: bold; z-index: 10; letter-spacing: 2px; border: 1px solid rgba(255,255,255,0.2); }
 
@@ -228,19 +228,6 @@
         .close-modal { position: absolute; right: 20px; top: 15px; font-size: 35px; cursor: pointer; color: var(--text-white); z-index: 20; background: rgba(0,0,0,0.5); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
         .close-modal:hover { background: var(--brand-orange); color: black; }
 
-        /* Ajuste do Texto do Modal para não vazar a tela (Celular) */
-        #modalDescricao {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            max-width: 100%;
-            width: 100%;
-            color: var(--text-gray); 
-            font-size: 0.95rem; 
-            margin-bottom: 20px; 
-            line-height: 1.5;
-        }
-
         .modal-texto { flex-direction: column; padding: 40px; max-height: 80vh; overflow-y: auto; }
         .modal-texto h1 { color: var(--brand-orange); margin-bottom: 20px; text-align: center; }
         .modal-texto h3 { margin-top: 20px; color: var(--text-white); }
@@ -274,8 +261,18 @@
             .dropdown-content { width: 100%; right: auto; left: 0; }
 
             .modal-flex { flex-direction: column; }
-            .modal-info { border-left: none; padding: 20px; max-width: 100vw; overflow-x: hidden; } 
+            .modal-info { border-left: none; padding: 20px; } 
+            
+            /* Correção para descrição não vazar no celular */
+            #modalDescricao { 
+                word-wrap: break-word; 
+                overflow-wrap: break-word; 
+                white-space: pre-wrap; 
+                max-width: 100%; 
+                overflow: hidden;
+            }
 
+            /* Reduz botões de foto no celular */
             .nav-galeria { 
                 padding: 10px 12px; 
                 font-size: 1.1rem; 
@@ -433,7 +430,7 @@
                             <div class="info-item">Cor<strong><span id="txtCor"></span></strong></div>
                         </div>
 
-                        <p id="modalDescricao"></p>
+                        <p id="modalDescricao" style="color: var(--text-gray); font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5;"></p>
                     </div>
 
                     <div style="margin-top: auto; padding-top: 20px;">
@@ -448,8 +445,8 @@
                         <div id="shareArea" class="share-container">
                             <p style="font-size: 12px; font-weight: bold; color: var(--brand-orange);">COMPARTILHAR EM:</p>
                             <div class="share-buttons">
-                                <a id="shareWpp" href="#" onclick="compartilharWPP(event)" class="btn-social" style="background:#25d366"><i class="fab fa-whatsapp"></i></a>
-                                <a id="shareFb" href="#" onclick="compartilharFB(event)" class="btn-social" style="background:#1877f2"><i class="fab fa-facebook-f"></i></a>
+                                <a id="shareWpp" href="#" target="_blank" class="btn-social" style="background:#25d366"><i class="fab fa-whatsapp"></i></a>
+                                <a id="shareFb" href="#" target="_blank" class="btn-social" style="background:#1877f2"><i class="fab fa-facebook-f"></i></a>
                                 <button id="shareIg" onclick="compartilharIG(event)" class="btn-social" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);"><i class="fab fa-instagram"></i></button>
                                 <div class="btn-social btn-copy" onclick="copiarLinkSEO()"><i class="fas fa-link"></i>  COPIAR LINK</div>
                             </div>
@@ -538,7 +535,6 @@
         let veiculosFiltrados = [];
         let direcaoOrdenacao = 'asc'; 
         let ordemAtual = null;
-        let modalJaAbertoViaUrl = false;
 
         function carregarEstoqueDados() {
             db.collection('veiculos')
@@ -564,7 +560,17 @@
                 });
                 veiculosFiltrados = [...veiculos];
                 carregarEstoque();
-                verificarLinkCarroNaURL();
+
+                // LÓGICA NOVA: Se o cliente veio do WhatsApp pelo link da API, abre o modal do carro sozinho
+                const urlParams = new URLSearchParams(window.location.search);
+                const carroIdDesejado = urlParams.get('id');
+                if (carroIdDesejado) {
+                    const indexDoCarro = veiculos.findIndex(v => v.id === carroIdDesejado);
+                    if (indexDoCarro > -1) {
+                        abrirAnuncio(indexDoCarro);
+                    }
+                }
+
             }, error => {
                 console.error("Erro ao carregar do Firebase:", error);
                 document.getElementById('grid-estoque').innerHTML = '<p style="text-align:center; grid-column: 1/-1; color: #ff4c4c; padding: 40px 0;">Erro ao conectar com o servidor.</p>';
@@ -572,20 +578,6 @@
         }
 
         window.onload = carregarEstoqueDados;
-
-        function verificarLinkCarroNaURL() {
-            if (modalJaAbertoViaUrl) return; 
-            const urlParams = new URLSearchParams(window.location.search);
-            const idCarroUrl = urlParams.get('carro');
-
-            if (idCarroUrl) {
-                const indexCarro = veiculos.findIndex(c => c.id === idCarroUrl || c.nome.replace(/\s+/g, '-').toLowerCase() === idCarroUrl);
-                if (indexCarro !== -1) {
-                    modalJaAbertoViaUrl = true;
-                    abrirAnuncio(indexCarro);
-                }
-            }
-        }
 
         function atualizarContador() {
             if (vAtual && vAtual.fotos) {
@@ -748,6 +740,7 @@
             renderizarPaginacao();
         }
 
+        // Preview Automático nas Imagens
         let previewTimers = {};
         function startPreview(element, veiculoIndex) {
             const fotos = veiculos[veiculoIndex].fotos;
@@ -756,7 +749,7 @@
             previewTimers[veiculoIndex] = setInterval(() => {
                 element.src = fotos[idx];
                 idx = (idx + 1) % fotos.length;
-            }, 1200); 
+            }, 1200); // 1.2 segundos por foto
         }
         function stopPreview(element, veiculoIndex) {
             if(previewTimers[veiculoIndex]) {
@@ -787,24 +780,6 @@
             document.getElementById('estoque').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Função Global de Ler Mais / Ler Menos
-        function toggleLerMais() {
-            const descElement = document.getElementById('modalDescricao');
-            const limite = 100;
-            if (!vAtual || !vAtual.desc) return;
-            
-            const textoCurto = vAtual.desc.substring(0, limite) + '... ';
-            const textoCompleto = vAtual.desc + ' ';
-
-            if (descElement.classList.contains('expandido')) {
-                descElement.classList.remove('expandido');
-                descElement.innerHTML = textoCurto + '<span id="btnLerMais" onclick="toggleLerMais()" style="color: var(--brand-orange); cursor: pointer; font-weight: bold;">[Ler mais <i class="fas fa-chevron-down"></i>]</span>';
-            } else {
-                descElement.classList.add('expandido');
-                descElement.innerHTML = textoCompleto + '<span id="btnLerMais" onclick="toggleLerMais()" style="color: var(--brand-orange); cursor: pointer; font-weight: bold;">[Ler menos <i class="fas fa-chevron-up"></i>]</span>';
-            }
-        }
-
         function abrirAnuncio(i) {
             vAtual = veiculos[i]; fotoIndex = 0;
             resetZoom();
@@ -824,27 +799,24 @@
             
             atualizarContador(); 
             
-            // Link Direto pela ID do Carro
-            const parametroUrl = '?carro=' + vAtual.id;
+            const parametroUrl = '?id=' + encodeURIComponent(vAtual.id);
             window.history.replaceState(null, '', parametroUrl);
-            const urlAtual = window.location.href;
+            
+            // O LINK DA VERCEL API PARA COMPARTILHAMENTO
+            const urlCompartilhamento = `https://fedautos.vercel.app/api/carro?id=${vAtual.id}`;
 
-            document.getElementById('og-title').content = `${vAtual.nome} - ${vAtual.ano} | F&D Autos`;
-            document.getElementById('og-desc').content = `Por apenas ${vAtual.preco}. ${vAtual.desc ? vAtual.desc.substring(0, 80) : ''}...`;
-            document.getElementById('og-image').content = vAtual.fotos[0];
-            document.getElementById('og-url').content = urlAtual;
+            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=Olá, tenho interesse no ${vAtual.nome} (${vAtual.ano}) no valor de ${vAtual.preco}`;
+            
+            const textoCompartilhar = `Confira este *${vAtual.nome}* (${vAtual.ano}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: `;
+            
+            document.getElementById('shareWpp').href = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhar)}` + encodeURIComponent(urlCompartilhamento);
+            document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(urlCompartilhamento)}`;
 
-            // WhatsApp com Link Específico
-            const textoInteresse = `Olá! Tenho interesse no veículo *${vAtual.nome}* (${vAtual.ano}) no valor de *${vAtual.preco}*.\n\nVi este anúncio aqui: ${urlAtual}`;
-            document.getElementById('btnInteresse').href = `https://wa.me/558132225291?text=${encodeURIComponent(textoInteresse)}`;
-
-            // Sistema Descrição com Ler Mais/Menos
             const descElement = document.getElementById('modalDescricao');
-            descElement.classList.remove('expandido'); // Reseta o estado ao abrir um novo
             const limite = 100;
             if (vAtual.desc && vAtual.desc.length > limite) {
-                const textoCurto = vAtual.desc.substring(0, limite) + '... ';
-                descElement.innerHTML = textoCurto + '<span id="btnLerMais" onclick="toggleLerMais()" style="color: var(--brand-orange); cursor: pointer; font-weight: bold;">[Ler mais <i class="fas fa-chevron-down"></i>]</span>';
+                descElement.innerHTML = vAtual.desc.substring(0, limite) + '... <span id="lerMais" style="color: var(--brand-orange); cursor: pointer; font-weight: bold;">[Ler mais]</span>';
+                document.getElementById('lerMais').onclick = () => { descElement.innerText = vAtual.desc; };
             } else {
                 descElement.innerText = vAtual.desc || "Sem descrição.";
             }
@@ -867,7 +839,7 @@
             if(isFullscreen) toggleFullscreen();
         }
 
-        /* --- Sistema de Zoom e Fullscreen com Arrastar (Pan) CORRIGIDO --- */
+        /* --- Sistema de Zoom e Fullscreen com Arrastar (Pan) --- */
         let isZoomed = false;
         let isFullscreen = false;
         let zoomScaleObj = 2.5;
@@ -879,30 +851,17 @@
 
         function resetZoom() {
             isZoomed = false;
-            isDragging = false;
             dragX = 0; dragY = 0;
             if(imgPrincipal) {
-                imgPrincipal.style.transformOrigin = "center center";
                 imgPrincipal.style.transform = "scale(1) translate(0px, 0px)";
                 imgPrincipal.style.cursor = "zoom-in";
                 imgPrincipal.classList.remove('zoomed-in');
-                imgPrincipal.classList.remove('dragging');
             }
         }
 
         function togglePointZoom(e) {
-            if (!isZoomed) {
-                isZoomed = true;
-                
-                // Pega coordenadas da imagem para saber exatamente onde focar
-                const rect = imgPrincipal.getBoundingClientRect();
-                let clickX = e.clientX || (e.touches && e.touches[0].clientX);
-                let clickY = e.clientY || (e.touches && e.touches[0].clientY);
-                
-                const xPercent = ((clickX - rect.left) / rect.width) * 100;
-                const yPercent = ((clickY - rect.top) / rect.height) * 100;
-
-                imgPrincipal.style.transformOrigin = `${xPercent}% ${yPercent}%`;
+            isZoomed = !isZoomed;
+            if (isZoomed) {
                 imgPrincipal.classList.add('zoomed-in');
                 imgPrincipal.style.transform = `scale(${zoomScaleObj}) translate(0px, 0px)`;
             } else {
@@ -910,15 +869,10 @@
             }
         }
 
-        // Impede comportamento nativo de "arrastar fantasma"
-        imgPrincipal.addEventListener('dragstart', (e) => e.preventDefault());
-
         // Lógica de Arrastar com Mouse
         imgPrincipal.addEventListener('mousedown', (e) => {
             if(!isZoomed) return;
-            e.preventDefault(); 
             isDragging = true;
-            imgPrincipal.classList.add('dragging');
             startX = e.clientX - dragX;
             startY = e.clientY - dragY;
         });
@@ -931,10 +885,7 @@
         });
 
         window.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                imgPrincipal.classList.remove('dragging');
-            }
+            isDragging = false;
         });
 
         // Lógica de Arrastar com Touch (Celular)
@@ -947,7 +898,7 @@
 
         galeriaBox.addEventListener('touchmove', (e) => {
             if(!isDragging || !isZoomed) return;
-            e.preventDefault(); 
+            e.preventDefault(); // Impede a tela de rolar enquanto arrasta a imagem
             dragX = e.touches[0].clientX - startX;
             dragY = e.touches[0].clientY - startY;
             imgPrincipal.style.transform = `scale(${zoomScaleObj}) translate(${dragX/zoomScaleObj}px, ${dragY/zoomScaleObj}px)`;
@@ -980,25 +931,10 @@
             area.style.display = area.style.display === "block" ? "none" : "block";
         }
 
-        function obterLinkDiretoCarro() {
-            return window.location.href.split('?')[0] + '?carro=' + vAtual.id;
-        }
-
         function gerarTextoSEO() {
             if(!vAtual) return window.location.href;
-            return `Olha esse veículo incrível que encontrei na F&D Autos!\n\n*${vAtual.nome}* - *${vAtual.preco}*\n\nConfira todos os detalhes e fotos no link:\n${obterLinkDiretoCarro()}`;
-        }
-
-        function compartilharWPP(e) {
-            e.preventDefault();
-            const texto = gerarTextoSEO();
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
-        }
-
-        function compartilharFB(e) {
-            e.preventDefault();
-            const linkCarro = obterLinkDiretoCarro();
-            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(linkCarro)}`, '_blank');
+            const urlCompartilhamento = `https://fedautos.vercel.app/api/carro?id=${vAtual.id}`;
+            return `Confira este *${vAtual.nome}* (${vAtual.ano}) por *${vAtual.preco}* na F&D Autos!\n\nVeja mais detalhes aqui: ${urlCompartilhamento}`;
         }
 
         function copiarLinkSEO() {
@@ -1015,7 +951,8 @@
                 try {
                     await navigator.share({
                         title: vAtual ? vAtual.nome : 'F&D Autos',
-                        text: texto
+                        text: texto,
+                        url: window.location.href
                     });
                     return;
                 } catch (err) {
