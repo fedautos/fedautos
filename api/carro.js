@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
         // 4. Prepara os textos que vão aparecer no WhatsApp
         const titulo = `F&D Autos | ${marca} ${versao} (${ano}) - R$ ${preco}`;
-        const descricao = `Confira este veículo inspecionado e com garantia em nosso estoque. Clique para ver fotos e mais detalhes!`;
+        const descricao = `Confira este veículo de ótima qualidade em nosso estoque. Clique para ver fotos e mais detalhes!`;
         
         // O link para onde o cliente será jogado ao clicar na foto
         const urlDestino = `https://fedautos.vercel.app/?id=${id}`;
