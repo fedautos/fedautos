@@ -898,8 +898,24 @@
                     dataCriacao: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                await db.collection('veiculos').add(novoVeiculo);
+                const docRef = await db.collection('veiculos').add(novoVeiculo);
                 
+                // --- INÍCIO: INTEGRAÇÃO MAKE.COM (CRIAR) ---
+                const precoLimpo = parseFloat(document.getElementById('preco').value.replace(/\./g, '').replace(',', '.'));
+                fetch("https://hook.us2.make.com/y1r33u6m4gs67tj2vxaqesugiayzwwcv", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        acao: "criar",
+                        idFirebase: docRef.id,
+                        nome: `${formatarMarca(marcaText)} ${versaoText}`,
+                        preco: precoLimpo,
+                        descricao: document.getElementById('descricao').value,
+                        imagemUrl: fotoUrls.length > 0 ? fotoUrls[0] : "https://via.placeholder.com/800x600?text=Sem+Foto"
+                    })
+                }).catch(err => console.error("Erro Make.com:", err));
+                // --- FIM: INTEGRAÇÃO MAKE.COM ---
+
                 document.getElementById('formCriar').reset();
                 $('.select2-search').val(null).trigger('change'); 
                 
@@ -921,6 +937,25 @@
         async function salvarPrecoInline(id, novoPreco) {
             if (novoPreco.trim() !== "") {
                 await db.collection('veiculos').doc(id).update({ preco: novoPreco });
+
+                // --- INÍCIO: INTEGRAÇÃO MAKE.COM (ATUALIZAR PREÇO) ---
+                const v = estoqueMock.find(veic => veic.id === id);
+                if (v) {
+                    const precoLimpo = parseFloat(novoPreco.replace(/\./g, '').replace(',', '.'));
+                    fetch("https://hook.us2.make.com/y1r33u6m4gs67tj2vxaqesugiayzwwcv", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            acao: "criar",
+                            idFirebase: id,
+                            nome: `${formatarMarca(v.marca)} ${v.versao}`,
+                            preco: precoLimpo,
+                            descricao: v.descricao,
+                            imagemUrl: v.fotos && v.fotos.length > 0 ? v.fotos[0] : "https://via.placeholder.com/800x600?text=Sem+Foto"
+                        })
+                    }).catch(err => console.error("Erro Make.com:", err));
+                }
+                // --- FIM: INTEGRAÇÃO MAKE.COM ---
             }
         }
 
@@ -1027,8 +1062,19 @@
         }
 
         async function excluirVeiculo(id) {
-            if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem?")) {
+            if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem e do catálogo do WhatsApp?")) {
                 await db.collection('veiculos').doc(id).delete();
+                
+                // --- INÍCIO: INTEGRAÇÃO MAKE.COM (EXCLUIR) ---
+                fetch("https://hook.us2.make.com/y1r33u6m4gs67tj2vxaqesugiayzwwcv", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        acao: "excluir",
+                        idFirebase: id
+                    })
+                }).catch(err => console.error("Erro Make.com:", err));
+                // --- FIM: INTEGRAÇÃO MAKE.COM ---
             }
         }
 
@@ -1119,6 +1165,23 @@
                     };
 
                     await db.collection('veiculos').doc(id).update(dadosAtualizados);
+                    
+                    // --- INÍCIO: INTEGRAÇÃO MAKE.COM (CRIAR/ATUALIZAR) ---
+                    const precoLimpo = parseFloat(document.getElementById('edit_preco').value.replace(/\./g, '').replace(',', '.'));
+                    fetch("https://hook.us2.make.com/y1r33u6m4gs67tj2vxaqesugiayzwwcv", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            acao: "criar",
+                            idFirebase: id,
+                            nome: `${dadosAtualizados.marca} ${dadosAtualizados.versao}`,
+                            preco: precoLimpo,
+                            descricao: dadosAtualizados.descricao,
+                            imagemUrl: fotoUrls.length > 0 ? fotoUrls[0] : "https://via.placeholder.com/800x600?text=Sem+Foto"
+                        })
+                    }).catch(err => console.error("Erro Make.com:", err));
+                    // --- FIM: INTEGRAÇÃO MAKE.COM ---
+
                     fecharModalEdicao();
                 } catch (error) {
                     console.error("Erro ao atualizar:", error);
@@ -1176,7 +1239,7 @@
             `INSTRUÇÕES DE CRIAÇÃO:\n` +
             `1. 🌟 Título Chamativo: Crie uma frase de impacto no início do texto.\n` +
             `2. 📝 Parágrafo de Apresentação: Descreva o carro de forma envolvente. Destaque o conforto, a confiabilidade da marca e o excelente custo-benefício.\n` +
-            `3. ✨ Principais Equipamentos (DEDUÇÃO INTELIGENTE): Baseado no modelo e versão (${marca} ${versao}), deduza os opcionais e itens de série MAIS PROVÁVEIS que este carro tem. Faça uma lista em formato de tópicos (usando o emoji ✅), incluindo itens como Direção Elétrica/Hidráulica, Ar-condicionado, Vidros Elétricos, Travas Elétricas, Central Multimídia, Computador de Bordo, Freios ABS, etc. Deixe a lista rica e coerente com o modelo.\n` +
+            `3. ✨ Principais Equipamentos (DEDUÇÃO INTELIGENTE): Baseado no modelo e versão (${marca} ${versao}), deduza os opcionais e itens de série MAIS PROVÁVEIS que este carro tem. Faça uma lista em formato de tópicos (usando o emoji ✅), incluindo itens como Direção Elétrica/Hidráulica, Ar-condicionado, Vidros Elétricas, Travas Elétricas, Central Multimídia, Computador de Bordo, Freios ABS, etc. Deixe a lista rica e coerente com o modelo.\n` +
             `4. 🛡️ Qualidade e Procedência: Destaque o estado de conservação impecável do veículo.\n` +
             `5. OBRIGATÓRIO: Termine o texto incluindo EXATAMENTE a lista abaixo, mantendo os emojis e a estrutura linha a linha:\n\n` +
             `${templateDesejado}`;
