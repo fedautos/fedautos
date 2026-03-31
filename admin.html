@@ -874,7 +874,7 @@
         async function enviarParaWebhook(id, acao, dados = null) {
             
             // COLOQUE O LINK DO ZAPIER AQUI ABAIXO, ENTRE AS ASPAS:
-            const webhookUrl = "COLE_O_LINK_DO_ZAPIER_AQUI";
+            const webhookUrl = "/api/sync";
             
             let bodyData = { 
                 acao: acao === "Criar" ? "Criar" : "Excluir", 
