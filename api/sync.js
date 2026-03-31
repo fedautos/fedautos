@@ -8,8 +8,8 @@ export default async function handler(req, res) {
     const { acao, idFirebase, nome, preco, descricao, imagemUrl, marca } = req.body;
 
     // 3. Pega suas credenciais (vamos configurá-las na Vercel depois por segurança)
-    const CATALOG_ID = process.env.CATALOG_ID || "643608957084425";
-    const META_TOKEN = process.env.META_TOKEN || "EAANmnZANCSuoBRJsJFxaixciy2ylU11bPGUPJEjjxypsuAGkQTi4SYntzlyDsrQUn65bmKx4e84RSsDIwNSSPjvW3283tlNGYeqNBEWWST5MH9uadyO4U0Lh7lefANMeI4PcHvzaNTruLIutyvGEQaMbSSbcK23ZAbHnN9EwKRDJ7GWvZAIcfus0T9eLgZDZD";
+    const CATALOG_ID = process.env.CATALOG_ID;
+    const META_TOKEN = process.env.META_TOKEN;
 
     try {
         if (acao === 'Criar') {
