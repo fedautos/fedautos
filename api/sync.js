@@ -3,15 +3,14 @@ export default async function handler(req, res) {
 
     const { acao, idFirebase, nome, preco, descricao, imagemUrl, marca } = req.body;
     
-    // VERIFIQUE SE ESTES DOIS DADOS ESTÃO EXATAMENTE IGUAIS AOS DO SEU PAINEL DA META
-    const CATALOG_ID = process.env.CATALOG_ID || "643608957084425";
-    const META_TOKEN = process.env.META_TOKEN || "EAANmnZANCSuoBRJsJFxaixciy2ylU11bPGUPJEjjxypsuAGkQTi4SYntzlyDsrQUn65bmKx4e84RSsDIwNSSPjvW3283tlNGYeqNBEWWST5MH9uadyO4U0Lh7lefANMeI4PcHvzaNTruLIutyvGEQaMbSSbcK23ZAbHnN9EwKRDJ7GWvZAIcfus0T9eLgZDZD";
+    const CATALOG_ID = "643608957084425";
+    // SEU NOVO TOKEN ABAIXO
+    const META_TOKEN = "EAAVJVRZAZAQo0BRDqvQTaTe3KUNL6ThiusppZBu3Bm97EOaGe0aeAvuKPgwjhFBHH0vSjVhjKit8xABi6ulp5zQ4WXsyEfGMLGhZCioGHHKQxva5K1NU5bTYheJ8zhoZCTnnLoi0H316v1tdSnpWJqh2KKqqBv6rCI12PWv8w5p9ZCWbpUZAs3X4ggfWowpRQZDZD";
 
     try {
-        if (acao === 'Criar') {
-            const precoLimpo = String(preco).replace(/\D/g, '');
+        const precoLimpo = String(preco).replace(/\D/g, '');
 
-            // Montando o comando no formato BATCH (mais robusto)
+        if (acao === 'Criar') {
             const requests = [{
                 method: "UPDATE",
                 data: {
@@ -28,7 +27,8 @@ export default async function handler(req, res) {
                 }
             }];
 
-            const fbResponse = await fetch(`https://graph.facebook.com/v19.0/${CATALOG_ID}/batch`, {
+            // Usando vehicles_batch que é o padrão para catálogos de automóveis
+            const fbResponse = await fetch(`https://graph.facebook.com/v19.0/${CATALOG_ID}/vehicles_batch`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${META_TOKEN}`,
@@ -39,25 +39,24 @@ export default async function handler(req, res) {
 
             const fbData = await fbResponse.json();
             
-            if (fbData.error || (fbData.handles && fbData.handles.length === 0)) {
-                console.error("ERRO CRÍTICO DA META:", JSON.stringify(fbData));
-                return res.status(400).json({ success: false, error: fbData.error || "Erro no processamento batch" });
+            if (fbData.error) {
+                console.error("ERRO DA META:", JSON.stringify(fbData.error));
+                return res.status(400).json({ success: false, error: fbData.error });
             }
 
             return res.status(200).json({ success: true, data: fbData });
 
         } else if (acao === 'Excluir') {
-            // Lógica de exclusão via Batch
             const requests = [{
                 method: "DELETE",
                 data: { retailer_id: String(idFirebase) }
             }];
-            await fetch(`https://graph.facebook.com/v19.0/${CATALOG_ID}/batch`, {
+            await fetch(`https://graph.facebook.com/v19.0/${CATALOG_ID}/vehicles_batch`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${META_TOKEN}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requests })
             });
-            return res.status(200).json({ success: true, message: 'Comando de exclusão enviado' });
+            return res.status(200).json({ success: true, message: 'Removido' });
         }
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
