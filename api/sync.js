@@ -14,15 +14,18 @@ export default async function handler(req, res) {
                 method: "UPDATE",
                 data: {
                     retailer_id: String(idFirebase),
-                    name: String(nome || 'Veículo F&D Autos').substring(0, 100),
-                    description: String(descricao || 'Consulte para mais detalhes').substring(0, 5000),
+                    name: String(nome || 'Veículo').substring(0, 100),
+                    description: String(descricao || 'Consulte-nos').substring(0, 5000),
                     image_url: imagemUrl,
-                    url: 'https://fdautos.com.br', 
+                    url: 'https://fdautos.com.br',
                     price: parseInt(precoLimpo),
                     currency: 'BRL',
                     brand: (marca || 'Volkswagen').trim(),
                     condition: 'used',
-                    availability: 'in stock'
+                    availability: 'in stock',
+                    // ADICIONE ESTAS DUAS LINHAS ABAIXO:
+                    visibility: 'published', 
+                    inventory: 1 
                 }
             }];
 
