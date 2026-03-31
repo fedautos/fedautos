@@ -7,14 +7,8 @@ export default async function handler(req, res) {
 
     try {
         if (acao === 'Criar') {
-            // 1. Limpeza radical do preço
-            const precoApenasNumeros = String(preco).replace(/[^0-9]/g, '');
-            const precoFinal = (parseInt(precoApenasNumeros) || 0).toString() + " BRL";
-
-            // 2. Garantir que a URL da imagem é válida (Facebook não aceita URLs curtas ou locais)
-            if (!imagemUrl || !imagemUrl.startsWith('http')) {
-                return res.status(400).json({ success: false, error: "A URL da imagem é inválida ou não é pública." });
-            }
+            // Limpa o preço para ter apenas números
+            const precoLimpo = String(preco).replace(/\D/g, '');
 
             const params = new URLSearchParams();
             params.append('retailer_id', String(idFirebase));
@@ -22,7 +16,11 @@ export default async function handler(req, res) {
             params.append('description', String(descricao || 'Consulte para mais detalhes').substring(0, 5000));
             params.append('image_url', imagemUrl);
             params.append('url', 'https://fdautos.com.br'); 
-            params.append('price', precoFinal);
+            
+            // AQUI ESTÁ A CORREÇÃO: Campos separados para preço e moeda
+            params.append('price', precoLimpo); 
+            params.append('currency', 'BRL'); 
+            
             params.append('brand', (marca || 'Volkswagen').trim());
             params.append('condition', 'used');
             params.append('availability', 'in stock');
@@ -39,19 +37,21 @@ export default async function handler(req, res) {
             const fbData = await fbResponse.json();
             
             if (fbData.error) {
-                // ISSO AQUI VAI APARECER NO LOG DA VERCEL EM VERMELHO
                 console.error("DETALHE DO ERRO DA META:", JSON.stringify(fbData.error));
                 return res.status(400).json({ success: false, meta_error: fbData.error });
             }
 
             return res.status(200).json({ success: true, data: fbData });
+        } else if (acao === 'Excluir') {
+            const searchRes = await fetch(`https://graph.facebook.com/v19.0/${CATALOG_ID}/products?filter={"retailer_id":{"eq":"${idFirebase}"}}&access_token=${META_TOKEN}`);
+            const searchData = await searchRes.json();
+            if (searchData.data && searchData.data.length > 0) {
+                const fbId = searchData.data[0].id;
+                await fetch(`https://graph.facebook.com/v19.0/${fbId}?access_token=${META_TOKEN}`, { method: 'DELETE' });
+            }
+            return res.status(200).json({ success: true, message: 'Processado' });
         }
-        
-        // ... (resto do código de excluir permanece igual)
-        return res.status(200).json({ success: true, message: "Ação processada" });
-
     } catch (err) {
-        console.error("ERRO NO SERVIDOR:", err.message);
         return res.status(500).json({ success: false, error: err.message });
     }
 }
