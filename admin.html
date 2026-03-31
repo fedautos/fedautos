@@ -869,10 +869,13 @@
 
 
         // ==========================================
-        // LÓGICA DO WEBHOOK PARA O MAKE (CENTRALIZADO)
+        // LÓGICA DO WEBHOOK PARA O ZAPIER (CENTRALIZADO)
         // ==========================================
         async function enviarParaWebhook(id, acao, dados = null) {
-            const webhookUrl = "https://hook.us2.make.com/abk3i378l82gijkrh2hv28klvrbbknru";
+            
+            // COLOQUE O LINK DO ZAPIER AQUI ABAIXO, ENTRE AS ASPAS:
+            const webhookUrl = "COLE_O_LINK_DO_ZAPIER_AQUI";
+            
             let bodyData = { 
                 acao: acao === "Criar" ? "Criar" : "Excluir", 
                 idFirebase: id 
@@ -889,7 +892,6 @@
 
                 const marcaAjustada = formatarMarca(dados.marca) || "";
                 
-                // Mapeamento compatível com o Make (Pílulas velhas e novas)
                 bodyData.marca = marcaAjustada;
                 bodyData.modelo = dados.versao || "";
                 bodyData.nome = `${marcaAjustada} ${dados.versao || ""}`; 
@@ -907,7 +909,7 @@
                 });
                 console.log(`Webhook (${acao}) disparado com sucesso para ID: ${id}`);
             } catch (error) {
-                console.error("Erro ao notificar o Make:", error);
+                console.error("Erro ao notificar a automação:", error);
             }
         }
 
@@ -977,7 +979,7 @@
 
                 const docRef = await db.collection('veiculos').add(novoVeiculo);
                 
-                // Envio para o Make
+                // Envio para o Webhook (Agora Zapier)
                 await enviarParaWebhook(docRef.id, "Criar", novoVeiculo);
 
                 document.getElementById('formCriar').reset();
@@ -1004,7 +1006,7 @@
 
                 const veiculo = estoqueMock.find(v => v.id === id);
                 if (veiculo && veiculo.emCatalogo !== false) {
-                    // Cria uma cópia temporária atualizada para mandar pro Make
+                    // Cria uma cópia temporária atualizada para mandar pro Webhook
                     const dadosAtualizados = { ...veiculo, preco: novoPreco };
                     await enviarParaWebhook(id, "Criar", dadosAtualizados);
                 }
@@ -1122,7 +1124,7 @@
             if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem e do catálogo do WhatsApp?")) {
                 await db.collection('veiculos').doc(id).delete();
                 
-                // Dispara a exclusão pro Make
+                // Dispara a exclusão pro Webhook
                 await enviarParaWebhook(id, "Excluir");
             }
         }
