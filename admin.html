@@ -869,12 +869,12 @@
 
 
         // ==========================================
-        // LÓGICA DO WEBHOOK PARA O ZAPIER (CENTRALIZADO)
+        // LÓGICA DO WEBHOOK PARA O MAKE (CENTRALIZADO)
         // ==========================================
         async function enviarParaWebhook(id, acao, dados = null) {
             
-            // COLOQUE O LINK DO ZAPIER AQUI ABAIXO, ENTRE AS ASPAS:
-            const webhookUrl = "/api/sync";
+            // COLE A URL DO WEBHOOK DO MAKE AQUI:
+            const webhookUrl = "https://hook.us2.make.com/jg5hz1b78lytycrc56hzt85po70yptm6";
             
             let bodyData = { 
                 acao: acao === "Criar" ? "Criar" : "Excluir", 
@@ -890,15 +890,54 @@
                     precoNumerico = dados.preco;
                 }
 
+                // Extrai ano final quando vier algo como 2023/2023
+                let anoNumerico = "";
+                if (dados.ano) {
+                    const anoTexto = String(dados.ano);
+                    const partesAno = anoTexto.match(/\d{4}/g);
+                    if (partesAno && partesAno.length > 0) {
+                        anoNumerico = parseInt(partesAno[partesAno.length - 1], 10);
+                    }
+                }
+
+                // Extrai KM como número
+                let kmNumerico = 0;
+                if (typeof dados.km === 'string') {
+                    kmNumerico = parseInt(dados.km.replace(/\D/g, ''), 10) || 0;
+                } else if (typeof dados.km === 'number') {
+                    kmNumerico = dados.km;
+                }
+
                 const marcaAjustada = formatarMarca(dados.marca) || "";
-                
+                const modeloAjustado = dados.versao || "";
+                const primeiraFoto = dados.fotos && dados.fotos.length > 0
+                    ? dados.fotos[0]
+                    : "https://via.placeholder.com/800x600?text=Sem+Foto";
+
                 bodyData.marca = marcaAjustada;
-                bodyData.modelo = dados.versao || "";
-                bodyData.nome = `${marcaAjustada} ${dados.versao || ""}`; 
+                bodyData.modelo = modeloAjustado;
+                bodyData.nome = `${marcaAjustada} ${modeloAjustado}`.trim();
                 bodyData.preco = precoNumerico;
                 bodyData.descricao = dados.descricao || "";
                 bodyData.fotos = dados.fotos || [];
-                bodyData.imagemUrl = dados.fotos && dados.fotos.length > 0 ? dados.fotos[0] : "https://via.placeholder.com/800x600?text=Sem+Foto";
+                bodyData.imagemUrl = primeiraFoto;
+
+                // Campos extras para o Make / catálogo
+                bodyData.ano = anoNumerico;
+                bodyData.km = kmNumerico;
+                bodyData.cor = dados.cor || "";
+                bodyData.cambio = dados.cambio || "";
+                bodyData.combustivel = dados.combustivel || "";
+                bodyData.tipo = dados.tipo || "";
+                bodyData.placa = dados.placa || "";
+                bodyData.urlSite = "https://fedautos.vercel.app";
+                bodyData.enderecoLoja = {
+                    addr1: "Rua da Regeneracao 86",
+                    city: "Recife",
+                    region: "PE",
+                    country: "BR",
+                    postal_code: "52120-000"
+                };
             }
 
             try {
