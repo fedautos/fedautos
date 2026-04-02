@@ -1,7 +1,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Lê a chave que você colou na Vercel
+// Puxa a chave que você salvou na Vercel
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 if (!getApps().length) {
@@ -14,17 +14,34 @@ const db = getFirestore();
 
 export default async function handler(req, res) {
   try {
-    // Busca os veículos no seu Firestore
-    const snapshot = await db.collection('veiculos').get();
+    // Busca os carros na sua coleção, garantindo que só vão os publicados e ativos no catálogo
+    const snapshot = await db.collection('veiculos')
+      .where('emCatalogo', '==', true)
+      .where('status', '==', 'publicado')
+      .get();
+      
     let itemsXml = '';
 
     snapshot.forEach(doc => {
       const car = doc.data();
+      const fotos = car.fotos || [];
       
-      // Limpeza simples de dados para o padrão XML
+      // Ajustes de formato para o Facebook não rejeitar
       const precoLimpo = car.preco ? String(car.preco).replace(/\D/g, '') : '0';
       const kmLimpo = car.km ? String(car.km).replace(/\D/g, '') : '0';
-      const anoLimpo = car.ano ? String(car.ano).substring(0, 4) : '';
+      // Pega o último ano se o formato for "2023/2024"
+      const anoLimpo = car.ano ? String(car.ano).split('/').pop() : ''; 
+
+      // 1. Foto Principal (Capa)
+      const fotoPrincipal = fotos.length > 0 ? fotos[0] : '';
+
+      // 2. Fotos Adicionais (Para o Carrossel) em ordem
+      let fotosAdicionaisXml = '';
+      if (fotos.length > 1) {
+        fotosAdicionaisXml = fotos.slice(1).map(url => `
+          <g:additional_image_link><![CDATA[${url}]]></g:additional_image_link>
+        `).join('');
+      }
 
       itemsXml += `
         <item>
@@ -32,17 +49,22 @@ export default async function handler(req, res) {
           <g:title><![CDATA[${car.marca} ${car.versao} ${anoLimpo}]]></g:title>
           <g:description><![CDATA[${car.descricao || 'Veículo em excelente estado.'}]]></g:description>
           <g:link>https://fedautos.vercel.app/carro/${doc.id}</g:link>
-          <g:image_link>${(car.fotos && car.fotos.length > 0) ? car.fotos[0] : ''}</g:image_link>
-          <g:make>${car.marca}</g:make>
-          <g:model>${car.versao}</g:model>
+          
+          <g:image_link><![CDATA[${fotoPrincipal}]]></g:image_link>
+          ${fotosAdicionaisXml}
+          
+          <g:brand><![CDATA[${car.marca}]]></g:brand>
+          <g:make><![CDATA[${car.marca}]]></g:make>
+          <g:model><![CDATA[${car.versao}]]></g:model>
           <g:year>${anoLimpo}</g:year>
-          <g:price>${precoLimpo} BRL</g:price>
+          <g:price>${precoLimpo}.00 BRL</g:price>
           <g:condition>used</g:condition>
           <g:availability>in stock</g:availability>
           <g:mileage>
             <g:value>${kmLimpo}</g:value>
             <g:unit>km</g:unit>
           </g:mileage>
+          
           <g:address>
             <g:street_address>Rua da Regeneracao 86</g:street_address>
             <g:city>Recife</g:city>
@@ -62,9 +84,9 @@ export default async function handler(req, res) {
         </channel>
       </rss>`;
 
-    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.status(200).send(xml);
   } catch (error) {
-    res.status(500).send("Erro ao gerar feed: " + error.message);
+    res.status(500).send("Erro: " + error.message);
   }
 }
