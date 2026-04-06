@@ -179,7 +179,7 @@
         .btn-fechar-modal:hover { color: var(--brand-orange); }
 
         /* =========================================
-           TOGGLE SWITCH CATÁLOGO (NOVO CSS)
+           TOGGLE SWITCH CATÁLOGO
            ========================================= */
         .switch-catalogo { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch-catalogo input { opacity: 0; width: 0; height: 0; }
@@ -869,103 +869,28 @@
 
 
         // ==========================================
-        // LÓGICA DO WEBHOOK PARA O MAKE (CENTRALIZADO)
+        // LÓGICA DE SINCRONIZAÇÃO COM A META (VIA VERCEL XML)
         // ==========================================
-        async function enviarParaWebhook(id, acao, dados = null) {
-            
-            // COLE A URL DO WEBHOOK DO MAKE AQUI:
-            const webhookUrl = "https://hook.us2.make.com/jg5hz1b78lytycrc56hzt85po70yptm6";
-            
-            let bodyData = { 
-                acao: acao === "Criar" ? "Criar" : "Excluir", 
-                idFirebase: id 
-            };
-
-            if (acao === "Criar" && dados) {
-                // Limpa o preço caso venha com formatação brasileira
-                let precoNumerico = 0;
-                if (typeof dados.preco === 'string') {
-                    precoNumerico = parseFloat(dados.preco.replace(/[^0-9,-]+/g, "").replace(",", "."));
-                } else if (typeof dados.preco === 'number') {
-                    precoNumerico = dados.preco;
-                }
-
-                // Extrai ano final quando vier algo como 2023/2023
-                let anoNumerico = "";
-                if (dados.ano) {
-                    const anoTexto = String(dados.ano);
-                    const partesAno = anoTexto.match(/\d{4}/g);
-                    if (partesAno && partesAno.length > 0) {
-                        anoNumerico = parseInt(partesAno[partesAno.length - 1], 10);
-                    }
-                }
-
-                // Extrai KM como número
-                let kmNumerico = 0;
-                if (typeof dados.km === 'string') {
-                    kmNumerico = parseInt(dados.km.replace(/\D/g, ''), 10) || 0;
-                } else if (typeof dados.km === 'number') {
-                    kmNumerico = dados.km;
-                }
-
-                const marcaAjustada = formatarMarca(dados.marca) || "";
-                const modeloAjustado = dados.versao || "";
-                const primeiraFoto = dados.fotos && dados.fotos.length > 0
-                    ? dados.fotos[0]
-                    : "https://via.placeholder.com/800x600?text=Sem+Foto";
-
-                bodyData.marca = marcaAjustada;
-                bodyData.modelo = modeloAjustado;
-                bodyData.nome = `${marcaAjustada} ${modeloAjustado}`.trim();
-                bodyData.preco = precoNumerico;
-                bodyData.descricao = dados.descricao || "";
-                bodyData.fotos = dados.fotos || [];
-                bodyData.imagemUrl = primeiraFoto;
-
-                // Campos extras para o Make / catálogo
-                bodyData.ano = anoNumerico;
-                bodyData.km = kmNumerico;
-                bodyData.cor = dados.cor || "";
-                bodyData.cambio = dados.cambio || "";
-                bodyData.combustivel = dados.combustivel || "";
-                bodyData.tipo = dados.tipo || "";
-                bodyData.placa = dados.placa || "";
-                bodyData.urlSite = "https://fedautos.vercel.app";
-                bodyData.enderecoLoja = {
-                    addr1: "Rua da Regeneracao 86",
-                    city: "Recife",
-                    region: "PE",
-                    country: "BR",
-                    postal_code: "52120-000"
-                };
-            }
-
+        async function sincronizarMetaCatalogo() {
+            console.log("Avisando a Meta para atualizar o catálogo via XML...");
             try {
-                await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyData)
-                });
-                console.log(`Webhook (${acao}) disparado com sucesso para ID: ${id}`);
+                const response = await fetch('/api/sync', { method: 'POST' });
+                const data = await response.json();
+                if(data.success) {
+                    console.log("Gatilho acionado! Catálogo da Meta será atualizado em breve.");
+                } else {
+                    console.error("Falha ao avisar a Meta:", data.error);
+                }
             } catch (error) {
-                console.error("Erro ao notificar a automação:", error);
+                console.error("Erro na requisição de sync:", error);
             }
         }
 
-        // Função do novo botão Switch Toggle (WhatsApp)
+        // Função do Switch Toggle (WhatsApp/Meta)
         async function toggleCatalogo(id, isChecked) {
             try {
-                // Atualiza o banco de dados
                 await db.collection('veiculos').doc(id).update({ emCatalogo: isChecked });
-                
-                // Busca os dados completos do carro para enviar ao Make
-                const veiculo = estoqueMock.find(v => v.id === id);
-                
-                if (isChecked) {
-                    await enviarParaWebhook(id, "Criar", veiculo);
-                } else {
-                    await enviarParaWebhook(id, "Excluir");
-                }
+                await sincronizarMetaCatalogo();
             } catch (err) {
                 console.error("Erro ao alterar catálogo:", err);
                 alert("Erro de comunicação ao atualizar status no catálogo.");
@@ -1018,8 +943,8 @@
 
                 const docRef = await db.collection('veiculos').add(novoVeiculo);
                 
-                // Envio para o Webhook (Agora Zapier)
-                await enviarParaWebhook(docRef.id, "Criar", novoVeiculo);
+                // Envio de gatilho para a Vercel/Meta
+                await sincronizarMetaCatalogo();
 
                 document.getElementById('formCriar').reset();
                 $('.select2-search').val(null).trigger('change'); 
@@ -1045,9 +970,7 @@
 
                 const veiculo = estoqueMock.find(v => v.id === id);
                 if (veiculo && veiculo.emCatalogo !== false) {
-                    // Cria uma cópia temporária atualizada para mandar pro Webhook
-                    const dadosAtualizados = { ...veiculo, preco: novoPreco };
-                    await enviarParaWebhook(id, "Criar", dadosAtualizados);
+                    await sincronizarMetaCatalogo();
                 }
             }
         }
@@ -1162,9 +1085,7 @@
         async function excluirVeiculo(id) {
             if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem e do catálogo do WhatsApp?")) {
                 await db.collection('veiculos').doc(id).delete();
-                
-                // Dispara a exclusão pro Webhook
-                await enviarParaWebhook(id, "Excluir");
+                await sincronizarMetaCatalogo();
             }
         }
 
@@ -1258,7 +1179,7 @@
                     
                     const veiculoAntigo = estoqueMock[veiculoIndex];
                     if (veiculoAntigo.emCatalogo !== false) {
-                        await enviarParaWebhook(id, "Criar", dadosAtualizados);
+                        await sincronizarMetaCatalogo();
                     }
 
                     fecharModalEdicao();
