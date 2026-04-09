@@ -871,18 +871,18 @@
         // ==========================================
         // LÓGICA DE SINCRONIZAÇÃO COM A META (VIA VERCEL XML)
         // ==========================================
-        async function sincronizarMetaCatalogo() {
-            console.log("Avisando a Meta para atualizar o catálogo via XML...");
+        async function sincronizarMeta() {
+            console.log("Solicitando sincronização com a Meta...");
             try {
                 const response = await fetch('/api/sync', { method: 'POST' });
                 const data = await response.json();
-                if(data.success) {
-                    console.log("Gatilho acionado! Catálogo da Meta será atualizado em breve.");
+                if (data.success) {
+                    console.log("✅ Meta avisada: O catálogo atualizará em instantes.");
                 } else {
-                    console.error("Falha ao avisar a Meta:", data.error);
+                    console.error("❌ Erro no sync da Meta:", data.error);
                 }
-            } catch (error) {
-                console.error("Erro na requisição de sync:", error);
+            } catch (err) {
+                console.error("❌ Falha ao conectar com o gatilho de sync:", err);
             }
         }
 
@@ -890,7 +890,7 @@
         async function toggleCatalogo(id, isChecked) {
             try {
                 await db.collection('veiculos').doc(id).update({ emCatalogo: isChecked });
-                await sincronizarMetaCatalogo();
+                await sincronizarMeta();
             } catch (err) {
                 console.error("Erro ao alterar catálogo:", err);
                 alert("Erro de comunicação ao atualizar status no catálogo.");
@@ -944,7 +944,7 @@
                 const docRef = await db.collection('veiculos').add(novoVeiculo);
                 
                 // Envio de gatilho para a Vercel/Meta
-                await sincronizarMetaCatalogo();
+                await sincronizarMeta();
 
                 document.getElementById('formCriar').reset();
                 $('.select2-search').val(null).trigger('change'); 
@@ -970,7 +970,7 @@
 
                 const veiculo = estoqueMock.find(v => v.id === id);
                 if (veiculo && veiculo.emCatalogo !== false) {
-                    await sincronizarMetaCatalogo();
+                    await sincronizarMeta();
                 }
             }
         }
@@ -1085,7 +1085,7 @@
         async function excluirVeiculo(id) {
             if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem e do catálogo do WhatsApp?")) {
                 await db.collection('veiculos').doc(id).delete();
-                await sincronizarMetaCatalogo();
+                await sincronizarMeta();
             }
         }
 
@@ -1179,7 +1179,7 @@
                     
                     const veiculoAntigo = estoqueMock[veiculoIndex];
                     if (veiculoAntigo.emCatalogo !== false) {
-                        await sincronizarMetaCatalogo();
+                        await sincronizarMeta();
                     }
 
                     fecharModalEdicao();
@@ -1226,30 +1226,38 @@
 
             const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
 
-            // PROMPT APRIMORADO (SUPER VENDEDOR)
-            const prompt = `Atue como o melhor e mais experiente vendedor de carros seminovos da loja "F&D Autos". Crie uma descrição incrivelmente detalhada, persuasiva e formatada com emojis para o seguinte veículo:\n\n` +
-            `- Veículo: ${marca} ${versao}\n` +
-            `- Ano: ${ano}\n` +
-            `- Quilometragem: ${km} km\n` +
-            `- Preço: R$ ${preco}\n` +
-            `- Tipo: ${tipo}\n` +
-            `- Cor: ${cor}\n` +
-            `- Câmbio: ${cambio}\n` +
-            `- Combustível: ${combustivel}\n\n` +
-            `INSTRUÇÕES DE CRIAÇÃO:\n` +
-            `1. 🌟 Título Chamativo: Crie uma frase de impacto no início do texto.\n` +
-            `2. 📝 Parágrafo de Apresentação: Descreva o carro de forma envolvente. Destaque o conforto, a confiabilidade da marca e o excelente custo-benefício.\n` +
-            `3. ✨ Principais Equipamentos (DEDUÇÃO INTELIGENTE): Baseado no modelo e versão (${marca} ${versao}), deduza os opcionais e itens de série MAIS PROVÁVEIS que este carro tem. Faça uma lista em formato de tópicos (usando o emoji ✅), incluindo itens como Direção Elétrica/Hidráulica, Ar-condicionado, Vidros Elétricas, Travas Elétricas, Central Multimídia, Computador de Bordo, Freios ABS, etc. Deixe a lista rica e coerente com o modelo.\n` +
-            `4. 🛡️ Qualidade e Procedência: Destaque o estado de conservação impecável do veículo.\n` +
-            `5. OBRIGATÓRIO: Termine o texto incluindo EXATAMENTE a lista abaixo, mantendo os emojis e a estrutura linha a linha:\n\n` +
-            `${templateDesejado}`;
+            // PROMPT APRIMORADO E ESTRITO (FOCO EM VERDADE E FORMATAÇÃO)
+            const prompt = `Atue como um vendedor premium de carros seminovos da loja "F&D Autos" e um especialista técnico automotivo de alta precisão.
+Crie uma descrição atraente, com foco na realidade e formatada para leitura rápida no celular sobre o seguinte veículo:
+
+- Veículo: ${marca} ${versao}
+- Ano: ${ano}
+- Quilometragem: ${km} km
+- Preço: R$ ${preco}
+- Cor: ${cor} | Câmbio: ${cambio} | Combustível: ${combustivel}
+
+REGRAS DE FORMATAÇÃO E CONTEÚDO (MUITO IMPORTANTE):
+1. 🌟 Título de impacto: Crie um título curto e chamativo na primeira linha.
+2. 📝 Textos curtos: Escreva parágrafos curtos, de no máximo 2 linhas. Evite blocos gigantes de texto para não cansar a leitura.
+3. ✨ Itens de Série REAIS (NÃO INVENTE, DIVERSIFIQUE): Consulte seus conhecimentos sobre as especificações reais da versão exata deste carro ("${versao}") no ano "${ano}".
+   - Liste apenas itens que este carro específico possui de fato na sua ficha técnica original.
+   - Seja específico! Se a direção for elétrica, não diga hidráulica. Se não tiver painel digital, não inclua. 
+   - Essa é a parte mais importante, eu preciso de variedade técnica real para cada modelo gerado.
+   - Apresente como uma lista em tópicos usando o emoji ✅ para cada item.
+4. 🛡️ Fechamento OBRIGATÓRIO: O texto DEVE terminar exatamente com a lista abaixo, sem alterar nenhuma palavra ou emoji:
+
+${templateDesejado}`;
 
             try {
+                // Adicionamos 'temperature: 0.3' para reduzir a "invenção" da I.A. e focar em dados reais e precisos
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            temperature: 0.3 
+                        }
                     })
                 });
 
@@ -1263,7 +1271,7 @@
                 }
             } catch (error) {
                 console.error("Erro na I.A.:", error);
-                const textoFallback = `🚗 Oportunidade Incrível! Apresentamos este belíssimo ${marca} ${versao} (${ano}), na cor ${cor}.\n\nUm veículo do tipo ${tipo}, com câmbio ${cambio} e motor a ${combustivel}. Com apenas ${km} km rodados, está sendo ofertado por R$ ${preco}.\n\n✨ Destaques prováveis do modelo:\n✅ Ar-condicionado\n✅ Direção assistida\n✅ Vidros e travas elétricas\n\n${templateDesejado}`;
+                const textoFallback = `🚗 Oportunidade Incrível! Apresentamos este ${marca} ${versao} (${ano}) impecável na cor ${cor}.\n\nUm utilitário de câmbio ${cambio} movido a ${combustivel}, com apenas ${km} km rodados. Perfeito estado de conservação, ofertado por R$ ${preco}.\n\n✨ Confira os destaques:\n✅ Ar-condicionado\n✅ Vidros e travas elétricas\n✅ Som ambiente\n\n${templateDesejado}`;
                 document.getElementById(`${prefixo}descricao`).value = textoFallback;
             } finally {
                 botaoHtml.innerHTML = textoOriginalBtn;
