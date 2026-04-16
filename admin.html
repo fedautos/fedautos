@@ -16,6 +16,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <style>
         :root {
             --brand-orange: #f4813f; 
@@ -142,6 +144,16 @@
         .status-badge.rascunho { color: var(--text-gray); border-color: var(--text-gray); }
         .fotos-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; z-index: 5; pointer-events: none;}
         .placa-badge { position: absolute; bottom: 10px; left: 10px; background: #e0e0e0; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; z-index: 5; text-transform: uppercase; border-top: 4px solid #003399; box-shadow: 0 2px 5px rgba(0,0,0,0.5); pointer-events: none;}
+        
+        /* Botão Baixar ZIP Exatamente na Posição Pedida */
+        .btn-download-zip { 
+            position: absolute; bottom: 10px; right: 10px; 
+            background: rgba(244,129,63,0.95); color: #000; border: none; 
+            width: 38px; height: 38px; border-radius: 6px; font-size: 1.2rem; 
+            cursor: pointer; transition: 0.3s; z-index: 10; display: flex; 
+            align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.8); 
+        }
+        .btn-download-zip:hover { background: var(--brand-orange); transform: scale(1.1); }
 
         .admin-card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; }
         .admin-card-body h3 { font-size: 1.1rem; margin-bottom: 5px; color: white; }
@@ -603,7 +615,6 @@
             let m = marca.toUpperCase();
             if (m.includes("VW") || m.includes("VOLKSWAGEM") || m === 'VW - VOLKSWAGEN') return "Volkswagen";
             if (m.includes("GM - CHEVROLET") || m === "GM") return "Chevrolet";
-            // Remove o "GM - " do início do nome, caso a API puxe assim
             let formatado = marca.replace(/^GM\s*-\s*/i, "");
             return formatado;
         }
@@ -679,7 +690,7 @@
                     estoqueMock.push(data);
                 });
 
-                // Ordena: 'publicado' sempre em cima, depois pela data de criação original (que já vem pelo orderBy do Firebase)
+                // Ordena: 'publicado' sempre em cima
                 estoqueMock.sort((a, b) => {
                     if (a.status === 'publicado' && b.status !== 'publicado') return -1;
                     if (a.status !== 'publicado' && b.status === 'publicado') return 1;
@@ -895,7 +906,7 @@
 
 
         // ==========================================
-        // LÓGICA DE SINCRONIZAÇÃO COM A META (VIA VERCEL XML)
+        // LÓGICA DE SINCRONIZAÇÃO COM A META
         // ==========================================
         async function sincronizarMeta() {
             console.log("Solicitando sincronização com a Meta...");
@@ -912,7 +923,6 @@
             }
         }
 
-        // Função do Switch Toggle (WhatsApp/Meta)
         async function toggleCatalogo(id, isChecked) {
             try {
                 await db.collection('veiculos').doc(id).update({ emCatalogo: isChecked });
@@ -922,8 +932,6 @@
                 alert("Erro de comunicação ao atualizar status no catálogo.");
             }
         }
-        // ==========================================
-
 
         async function salvarVeiculo(event) {
             event.preventDefault();
@@ -964,12 +972,10 @@
                     fotos: fotoUrls,
                     status: 'rascunho',
                     dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
-                    emCatalogo: false // Agora novos carros entram desativados por padrão
+                    emCatalogo: false 
                 };
 
                 const docRef = await db.collection('veiculos').add(novoVeiculo);
-                
-                // Envio de gatilho para a Vercel/Meta
                 await sincronizarMeta();
 
                 document.getElementById('formCriar').reset();
@@ -1001,7 +1007,7 @@
             }
         }
 
-        // Sistema de Hover (Preview) no Admin
+        // Preview Automático
         let previewTimersAdmin = {};
         function startPreview(element, veiculoId) {
             const v = estoqueMock.find(veic => veic.id === veiculoId);
@@ -1019,6 +1025,54 @@
             }
             const v = estoqueMock.find(veic => veic.id === veiculoId);
             if(v && v.fotos) element.src = v.fotos[0];
+        }
+
+        // ================= FUNÇÃO DOWNLOAD ZIP =================
+        async function baixarFotosZip(veiculoId) {
+            const btn = document.getElementById(`btn-zip-${veiculoId}`);
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const veiculo = estoqueMock.find(v => v.id === veiculoId);
+                if(!veiculo || !veiculo.fotos || veiculo.fotos.length === 0) {
+                    alert("Nenhuma foto disponível para download.");
+                    return;
+                }
+
+                const zip = new JSZip();
+                const marcaFormatada = veiculo.marca.replace(/[^a-zA-Z0-9]/g, '');
+                const versaoFormatada = veiculo.versao.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
+                const nomeBase = `${marcaFormatada}_${versaoFormatada}`.toUpperCase();
+
+                // Fazer download de todas as imagens do ImgBB e adicionar ao ZIP
+                const promessas = veiculo.fotos.map(async (url, index) => {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    zip.file(`${nomeBase}_FOTO_${index + 1}.jpg`, blob);
+                });
+
+                await Promise.all(promessas);
+                
+                // Gerar o ZIP
+                const content = await zip.generateAsync({type: "blob"});
+
+                // Disparar o download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `FOTOS_${nomeBase}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (error) {
+                console.error("Erro ao baixar fotos:", error);
+                alert("Ocorreu um erro ao gerar o arquivo ZIP das fotos.");
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
         }
 
         function renderizarEstoque() {
@@ -1056,6 +1110,11 @@
                         <span class="status-badge ${statusClass}">${v.status}</span>
                         <span class="fotos-badge"><i class="fas fa-camera"></i> ${qtdFotos}</span>
                         <span class="placa-badge"><i class="fas fa-id-card"></i> ${placaText}</span>
+                        
+                        <button class="btn-download-zip" id="btn-zip-${v.id}" onclick="baixarFotosZip('${v.id}')" title="Baixar todas as fotos">
+                            <i class="fas fa-download"></i>
+                        </button>
+
                         <img src="${imgCapa}" 
                              alt="${marcaLimpa} ${v.versao}"
                              onmouseenter="startPreview(this, '${v.id}')"
@@ -1224,10 +1283,17 @@
             }
         }
 
-        // ================= GERADOR DE DESCRIÇÃO POR I.A =================
+        // ================= GERADOR DE DESCRIÇÃO POR I.A MULTIMODAL =================
         async function gerarDescricaoIA(botaoHtml) {
             const formContext = botaoHtml.closest('form').id;
             const prefixo = formContext === 'formEditar' ? 'edit_' : '';
+
+            // --- TRAVA DE SEGURANÇA: VERIFICAR FOTOS PRIMEIRO ---
+            const fotosAtuais = formContext === 'formEditar' ? fotosEditar : fotosCriar;
+            if (fotosAtuais.length === 0) {
+                alert("⚠️ Adicione pelo menos uma foto do veículo antes de gerar a descrição!\n\nA Inteligência Artificial precisa visualizar o carro para extrair os detalhes e criar um anúncio fiel aos opcionais reais.");
+                return;
+            }
 
             let marca = $(`#${prefixo}marca option:selected`).text() || '';
             marca = formatarMarca(marca);
@@ -1237,7 +1303,6 @@
                             ? versaoCustom.value 
                             : ($(`#${prefixo}versao option:selected`).text() || '');
             let ano = document.getElementById(`${prefixo}ano`).value || '';
-            ano = ano.includes('/') ? ano.split('/').pop() : ano; 
             
             const km = document.getElementById(`${prefixo}km`).value || '';
             const preco = document.getElementById(`${prefixo}preco`).value || '';
@@ -1252,40 +1317,70 @@
             }
 
             const textoOriginalBtn = botaoHtml.innerHTML;
-            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A Analisando Fotos...';
             botaoHtml.disabled = true;
 
             const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
 
-            // PROMPT APRIMORADO E ESTRITO (FOCO EM VERDADE E FORMATAÇÃO)
-            const prompt = `Atue como um vendedor premium de carros seminovos da loja "F&D Autos" e um especialista técnico automotivo de alta precisão.
-Crie uma descrição atraente, com foco na realidade e formatada para leitura rápida no celular sobre o seguinte veículo:
+            const partsArray = [];
 
-- Veículo: ${marca} ${versao}
-- Ano: ${ano}
-- Quilometragem: ${km} km
-- Preço: R$ ${preco}
-- Cor: ${cor} | Câmbio: ${cambio} | Combustível: ${combustivel}
+            // Prompt otimizado
+            const promptText = `Atue como um vendedor premium da loja "F&D Autos" e especialista técnico automotivo.
+Escreva uma descrição atraente e focada na realidade para leitura rápida no WhatsApp/Instagram.
 
-REGRAS DE FORMATAÇÃO E CONTEÚDO (MUITO IMPORTANTE):
-1. 🌟 Título de impacto: Crie um título curto e chamativo na primeira linha.
-2. 📝 Textos curtos: Escreva parágrafos curtos, de no máximo 2 linhas. Evite blocos gigantes de texto para não cansar a leitura.
-3. ✨ Itens de Série REAIS (NÃO INVENTE, DIVERSIFIQUE): Consulte seus conhecimentos sobre as especificações reais da versão exata deste carro ("${versao}") no ano "${ano}".
-   - Liste apenas itens que este carro específico possui de fato na sua ficha técnica original.
-   - Seja específico! Se a direção for elétrica, não diga hidráulica. Se não tiver painel digital, não inclua. 
-   - Essa é a parte mais importante, eu preciso de variedade técnica real para cada modelo gerado.
-   - Apresente como uma lista em tópicos usando o emoji ✅ para cada item.
-4. 🛡️ Fechamento OBRIGATÓRIO: O texto DEVE terminar exatamente com a lista abaixo, sem alterar nenhuma palavra ou emoji:
+- VEÍCULO: ${marca} ${versao}
+- ANO: ${ano} | KM: ${km} km | PREÇO: R$ ${preco}
+- COR: ${cor} | CÂMBIO: ${cambio} | COMBUSTÍVEL: ${combustivel}
+
+REGRAS DE CONTEÚDO E FORMATAÇÃO (MUITO IMPORTANTE):
+1. 🌟 TÍTULO: Crie um título chamativo na primeira linha. NÃO escreva frases feias como "movido a Flex" ou "utilitário automático". Seja sofisticado e foque no nome do carro e estado de conservação.
+2. 📝 TEXTO DIRETO: Parágrafos com no máximo 2 linhas. Vá direto ao ponto. Não repita excessivamente o ano, km e preço que já estão no cabeçalho, a menos que seja para destacar ("Apenas 45 mil km!").
+3. 👁️ ANÁLISE VISUAL (FOTOS): Eu te enviei algumas fotos estratégicas (exterior e interior) deste carro. Analise as imagens para identificar itens visíveis, como bancos de couro, central multimídia, rodas de liga leve, faróis de neblina, teto solar, etc. Inclua esses diferenciais na lista de opcionais se você os enxergar.
+4. ✨ ITENS DE SÉRIE EXATOS: Baseie-se na versão para completar a lista de série.
+   - PROIBIDO usar o termo "direção assistida". Você DEVE especificar se é "Direção Hidráulica" ou "Direção Elétrica".
+   - Use uma lista em tópicos com o emoji ✅.
+5. 🛡️ FECHAMENTO OBRIGATÓRIO: O texto DEVE terminar exatamente com o bloco abaixo, sem alterar ou apagar palavras:
 
 ${templateDesejado}`;
 
+            partsArray.push({ text: promptText });
+
+            // LÓGICA DE AMOSTRAGEM INTELIGENTE
+            let indicesParaAnalisar = [];
+            let totalFotos = fotosAtuais.length;
+
+            if (totalFotos <= 5) {
+                for (let i = 0; i < totalFotos; i++) indicesParaAnalisar.push(i);
+            } else {
+                indicesParaAnalisar.push(0); // 1ª foto
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.25)); // 25%
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); // 50% (Meio - Painel)
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.75)); // 75%
+                indicesParaAnalisar.push(totalFotos - 1); // Última foto
+            }
+
+            indicesParaAnalisar = [...new Set(indicesParaAnalisar)].sort((a,b) => a-b);
+
+            for(let i of indicesParaAnalisar) {
+                let base64Data = fotosAtuais[i].dataUrl;
+                if(base64Data.startsWith('data:image')) {
+                    const mimeType = base64Data.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/)[1];
+                    const base64Limpo = base64Data.split(',')[1];
+                    partsArray.push({
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: base64Limpo
+                        }
+                    });
+                }
+            }
+
             try {
-                // Adicionamos 'temperature: 0.3' para reduzir a "invenção" da I.A. e focar em dados reais e precisos
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
+                        contents: [{ parts: partsArray }],
                         generationConfig: {
                             temperature: 0.3 
                         }
@@ -1302,7 +1397,7 @@ ${templateDesejado}`;
                 }
             } catch (error) {
                 console.error("Erro na I.A.:", error);
-                const textoFallback = `🚗 Oportunidade Incrível! Apresentamos este ${marca} ${versao} (${ano}) impecável na cor ${cor}.\n\nUm utilitário de câmbio ${cambio} movido a ${combustivel}, com apenas ${km} km rodados. Perfeito estado de conservação, ofertado por R$ ${preco}.\n\n✨ Confira os destaques:\n✅ Ar-condicionado\n✅ Vidros e travas elétricas\n✅ Som ambiente\n\n${templateDesejado}`;
+                const textoFallback = `🌟 ${marca} ${versao} impecável na cor ${cor}!\n\nVeículo em perfeito estado de conservação. Excelente oportunidade para quem busca conforto e economia.\n\n✨ Confira os destaques do modelo:\n✅ Direção Hidráulica/Elétrica\n✅ Ar-condicionado\n✅ Vidros elétricos\n✅ Som ambiente\n\n${templateDesejado}`;
                 document.getElementById(`${prefixo}descricao`).value = textoFallback;
             } finally {
                 botaoHtml.innerHTML = textoOriginalBtn;
