@@ -523,8 +523,11 @@
         function formatarMarca(marca) {
             if (!marca) return "";
             let m = marca.toUpperCase();
-            if (m.includes("VW") || m.includes("VOLKSWAGEM")) return "Volkswagen";
-            return marca;
+            if (m.includes("VW") || m.includes("VOLKSWAGEM") || m === 'VW - VOLKSWAGEN') return "Volkswagen";
+            if (m.includes("GM - CHEVROLET") || m === "GM") return "Chevrolet";
+            // Remove o "GM - " do início do nome, caso a API puxe assim
+            let formatado = marca.replace(/^GM\s*-\s*/i, "");
+            return formatado;
         }
 
         let veiculos = [];
