@@ -367,11 +367,12 @@
 
                         <div class="input-group full-width" style="margin-top: 20px;">
                             <label>Fotos do Veículo (Arraste para ordenar)</label>
-                            <div class="upload-area" onclick="document.getElementById('fotos-input-criar').click()">
+                            
+                            <label class="upload-area" for="fotos-input-criar" style="display: block;">
                                 <i class="fas fa-cloud-upload-alt"></i>
                                 <p>Clique aqui para adicionar fotos</p>
-                            </div>
-                            <input type="file" id="fotos-input-criar" class="fotos-input" multiple accept="image/*" onchange="adicionarFotos(event, 'preview-criar', 'criar')">
+                            </label>
+                            <input type="file" id="fotos-input-criar" class="fotos-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" onchange="adicionarFotos(event, 'preview-criar', 'criar')">
                             
                             <div class="preview-fotos" id="preview-criar"></div>
                         </div>
@@ -472,11 +473,12 @@
 
                 <div class="input-group full-width" style="margin-top: 20px;">
                     <label>Fotos do Veículo (Arraste para ordenar)</label>
-                    <div class="upload-area" onclick="document.getElementById('fotos-input-editar').click()">
+                    
+                    <label class="upload-area" for="fotos-input-editar" style="display: block;">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <p>Clique aqui para adicionar mais fotos</p>
-                    </div>
-                    <input type="file" id="fotos-input-editar" class="fotos-input" multiple accept="image/*" onchange="adicionarFotos(event, 'preview-editar', 'editar')">
+                    </label>
+                    <input type="file" id="fotos-input-editar" class="fotos-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" onchange="adicionarFotos(event, 'preview-editar', 'editar')">
                     
                     <div class="preview-editar" id="preview-editar" style="display:flex; gap:15px; margin-top:15px; flex-wrap:wrap;"></div>
                 </div>
@@ -505,6 +507,21 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+
+        const logosMarcas = {
+            "Chevrolet": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Chevrolet-logo.png/120px-Chevrolet-logo.png",
+            "Toyota": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Toyota_logo_%28Red%29.svg/960px-Toyota_logo_%28Red%29.svg.png",
+            "Jeep": "https://logosmarcas.net/wp-content/uploads/2021/09/Jeep-Logo.png",
+            "Volkswagen": "https://upload.wikimedia.org/wikipedia/commons/6/6d/Volkswagen_logo_2019.svg",
+            "Hyundai": "https://logodownload.org/wp-content/uploads/2014/05/hyundai-logo-5.png",
+            "Fiat": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Fiat_Automobiles_logo.svg/120px-Fiat_Automobiles_logo.svg.png",
+            "Honda": "https://logodownload.org/wp-content/uploads/2014/09/honda-autos-logo.png",
+            "Ford": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Ford_Motor_Company_Logo.svg/120px-Ford_Motor_Company_Logo.svg.png",
+            "Renault": "https://logodownload.org/wp-content/uploads/2014/09/renault-logo-3.png",
+            "Peugeot": "https://logodownload.org/wp-content/uploads/2014/09/peugeot-logo-1.png",
+            "Nissan": "https://cdn.freebiesupply.com/logos/thumbs/2x/nissan-6-logo.png",
+            "Citroen": "https://logodownload.org/wp-content/uploads/2014/09/Citroen-logo-1.png"
+        };
 
         let listenerFirestore = null; 
 
@@ -581,13 +598,14 @@
 
         // ================= FUNÇÕES DO PAINEL =================
         
-        function formatarMarca(nome) {
-            if (!nome) return "";
-            let n = nome.toUpperCase();
-            if (n.includes('VW') || n.includes('VOLKSWAGEM') || n === 'VW - VOLKSWAGEN') {
-                return 'Volkswagen';
-            }
-            return nome;
+        function formatarMarca(marca) {
+            if (!marca) return "";
+            let m = marca.toUpperCase();
+            if (m.includes("VW") || m.includes("VOLKSWAGEM") || m === 'VW - VOLKSWAGEN') return "Volkswagen";
+            if (m.includes("GM - CHEVROLET") || m === "GM") return "Chevrolet";
+            // Remove o "GM - " do início do nome, caso a API puxe assim
+            let formatado = marca.replace(/^GM\s*-\s*/i, "");
+            return formatado;
         }
 
         async function uploadParaImgBB(base64Data) {
@@ -660,6 +678,14 @@
                     data.id = doc.id; 
                     estoqueMock.push(data);
                 });
+
+                // Ordena: 'publicado' sempre em cima, depois pela data de criação original (que já vem pelo orderBy do Firebase)
+                estoqueMock.sort((a, b) => {
+                    if (a.status === 'publicado' && b.status !== 'publicado') return -1;
+                    if (a.status !== 'publicado' && b.status === 'publicado') return 1;
+                    return 0; 
+                });
+
                 renderizarEstoque();
             });
 
@@ -938,7 +964,7 @@
                     fotos: fotoUrls,
                     status: 'rascunho',
                     dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
-                    emCatalogo: true // Novo carro entra ativo por padrão
+                    emCatalogo: false // Agora novos carros entram desativados por padrão
                 };
 
                 const docRef = await db.collection('veiculos').add(novoVeiculo);
@@ -1007,7 +1033,9 @@
                 const placaText = v.placa ? v.placa.toUpperCase() : 'N/I';
                 const qtdFotos = v.fotos ? v.fotos.length : 0;
                 
-                const anoFormatado = v.ano.includes('/') ? v.ano.split('/').pop() : v.ano;
+                const marcaLimpa = formatarMarca(v.marca);
+                const marcaParaLogo = Object.keys(logosMarcas).find(key => key.toLowerCase() === marcaLimpa.toLowerCase());
+                const logoHtml = marcaParaLogo ? `<img src="${logosMarcas[marcaParaLogo]}" alt="${marcaLimpa}" style="width: 25px; height: 25px; object-fit: contain; vertical-align: bottom; margin-right: 5px;">` : '';
 
                 let blocoFipe = '';
                 if (v.fipeValor) {
@@ -1029,7 +1057,7 @@
                         <span class="fotos-badge"><i class="fas fa-camera"></i> ${qtdFotos}</span>
                         <span class="placa-badge"><i class="fas fa-id-card"></i> ${placaText}</span>
                         <img src="${imgCapa}" 
-                             alt="${v.marca} ${v.versao}"
+                             alt="${marcaLimpa} ${v.versao}"
                              onmouseenter="startPreview(this, '${v.id}')"
                              onmouseleave="stopPreview(this, '${v.id}')"
                              ontouchstart="startPreview(this, '${v.id}')"
@@ -1037,7 +1065,7 @@
                     </div>
                     
                     <div class="admin-card-body">
-                        <h3>${formatarMarca(v.marca)} ${v.versao} (${anoFormatado})</h3>
+                        <h3 style="display: flex; align-items: center;">${logoHtml} ${marcaLimpa} ${v.versao} (${v.ano})</h3>
                         
                         <div class="details-info">
                             <span title="Quilometragem"><i class="fas fa-tachometer-alt"></i> ${v.km}</span>
@@ -1057,10 +1085,13 @@
                                 onfocusout="this.style.borderBottom='1px dashed transparent'">
                             <i class="fas fa-pen" style="color: var(--text-gray); cursor: pointer; font-size: 0.9rem;" onclick="this.previousElementSibling.focus()" title="Editar Preço"></i>
                             
-                            <label class="switch-catalogo" style="margin-left: auto;" title="Ativar/Desativar no WhatsApp">
-                                <input type="checkbox" onchange="toggleCatalogo('${v.id}', this.checked)" ${v.emCatalogo !== false ? 'checked' : ''}>
-                                <span class="slider-catalogo"></span>
-                            </label>
+                            <div style="display: flex; flex-direction: column; align-items: center; margin-left: auto;">
+                                <span style="font-size: 0.7rem; color: var(--text-gray); margin-bottom: 4px; font-weight: bold; text-transform: uppercase;">Catálogo</span>
+                                <label class="switch-catalogo" title="Ativar/Desativar no WhatsApp">
+                                    <input type="checkbox" onchange="toggleCatalogo('${v.id}', this.checked)" ${v.emCatalogo !== false ? 'checked' : ''}>
+                                    <span class="slider-catalogo"></span>
+                                </label>
+                            </div>
                         </div>
 
                         <div class="admin-actions">
