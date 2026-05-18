@@ -145,7 +145,6 @@
         .fotos-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; z-index: 5; pointer-events: none;}
         .placa-badge { position: absolute; bottom: 10px; left: 10px; background: #e0e0e0; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; z-index: 5; text-transform: uppercase; border-top: 4px solid #003399; box-shadow: 0 2px 5px rgba(0,0,0,0.5); pointer-events: none;}
         
-        /* Botão Baixar ZIP Exatamente na Posição Pedida */
         .btn-download-zip { 
             position: absolute; bottom: 10px; right: 10px; 
             background: rgba(244,129,63,0.95); color: #000; border: none; 
@@ -158,11 +157,12 @@
         .admin-card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; }
         .admin-card-body h3 { font-size: 1.1rem; margin-bottom: 5px; color: white; }
         
-        .details-info { display: flex; gap: 15px; color: var(--text-gray); font-size: 0.85rem; margin-bottom: 10px; }
+        .details-info { display: flex; gap: 15px; color: var(--text-gray); font-size: 0.85rem; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
         .details-info span { display: flex; align-items: center; gap: 5px; }
 
-        .admin-actions { display: flex; gap: 10px; margin-top: auto; flex-wrap: wrap; }
-        .btn-action { flex: 1; min-width: 80px; background: transparent; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.85rem; border: 1px solid currentColor; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .admin-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
+        /* AJUSTE DO BOTÃO DESPUBLICAR PARA NÃO VAZAR O TEXTO */
+        .btn-action { flex: 1; min-width: unset; white-space: nowrap; background: transparent; padding: 8px 4px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.80rem; border: 1px solid currentColor; display: flex; justify-content: center; align-items: center; gap: 4px; }
         
         .btn-publicar { color: #25d366; }
         .btn-publicar:hover { background: #25d366; color: #000; }
@@ -190,9 +190,6 @@
         }
         .btn-fechar-modal:hover { color: var(--brand-orange); }
 
-        /* =========================================
-           TOGGLE SWITCH CATÁLOGO
-           ========================================= */
         .switch-catalogo { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch-catalogo input { opacity: 0; width: 0; height: 0; }
         .slider-catalogo { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ff4c4c; transition: .4s; border-radius: 24px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
@@ -201,7 +198,7 @@
         .switch-catalogo input:checked + .slider-catalogo:before { transform: translateX(20px); }
 
         /* =========================================
-           RESPONSIVIDADE (CELULARES E TABLETS)
+           RESPONSIVIDADE
            ========================================= */
         @media (max-width: 768px) {
             header { padding: 10px 5%; }
@@ -217,7 +214,7 @@
             .details-info { flex-wrap: wrap; gap: 10px; }
             
             .admin-actions { flex-direction: column; gap: 8px; }
-            .btn-action { padding: 12px; font-size: 0.95rem; }
+            .btn-action { padding: 12px; font-size: 0.95rem; white-space: normal; }
             
             .modal-overlay { padding: 10px; }
             .modal-content { padding: 20px 15px; width: 100%; max-height: 95vh; }
@@ -397,9 +394,33 @@
             </section>
 
             <section style="margin-top: 40px;">
-                <h2 class="section-title"><i class="fas fa-car"></i> Veículos no Estoque</h2>
-                <div class="estoque-admin-grid" id="listaAdmin">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #2d333b; padding-bottom: 15px; margin-bottom: 20px; gap: 15px;">
+                    <h2 class="section-title" style="border: none; padding: 0; margin: 0;"><i class="fas fa-car"></i> Veículos no Estoque</h2>
+                    
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div class="input-group" style="flex-direction: row; align-items: center; background: var(--dark-bg); border: 1px solid #2d333b; border-radius: 6px; padding: 0 10px; height: 40px;">
+                            <i class="fas fa-search" style="color: var(--text-gray);"></i>
+                            <input type="text" id="buscaNome" placeholder="Buscar veículo ou placa..." style="border: none; box-shadow: none; width: 220px; height: 100%; padding: 0 10px;" onkeyup="renderizarEstoque()">
+                        </div>
+                        
+                        <div class="input-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                            <i class="fas fa-cog" style="color: var(--brand-orange);" title="Filtros"></i>
+                            <select id="filtroMarca" style="padding: 0 10px; height: 40px; border-radius: 6px;" onchange="renderizarEstoque()">
+                                <option value="">Todas as Marcas</option>
+                            </select>
+                            <select id="filtroAno" style="padding: 0 10px; height: 40px; border-radius: 6px;" onchange="renderizarEstoque()">
+                                <option value="">Todos os Anos</option>
+                            </select>
+                            <select id="filtroStatus" style="padding: 0 10px; height: 40px; border-radius: 6px;" onchange="renderizarEstoque()">
+                                <option value="">Todos (Status)</option>
+                                <option value="publicado">Publicados</option>
+                                <option value="rascunho">Despublicados</option>
+                            </select>
+                        </div>
                     </div>
+                </div>
+
+                <div class="estoque-admin-grid" id="listaAdmin"></div>
             </section>
 
         </main>
@@ -608,8 +629,6 @@
             });
         }
 
-        // ================= FUNÇÕES DO PAINEL =================
-        
         function formatarMarca(marca) {
             if (!marca) return "";
             let m = marca.toUpperCase();
@@ -690,7 +709,6 @@
                     estoqueMock.push(data);
                 });
 
-                // Ordena: 'publicado' sempre em cima
                 estoqueMock.sort((a, b) => {
                     if (a.status === 'publicado' && b.status !== 'publicado') return -1;
                     if (a.status !== 'publicado' && b.status === 'publicado') return 1;
@@ -905,9 +923,6 @@
         function dragEnd(e) { this.classList.remove('dragging'); }
 
 
-        // ==========================================
-        // LÓGICA DE SINCRONIZAÇÃO COM A META
-        // ==========================================
         async function sincronizarMeta() {
             console.log("Solicitando sincronização com a Meta...");
             try {
@@ -923,9 +938,15 @@
             }
         }
 
+        // ================= FUNÇÃO CATÁLOGO E STATUS AUTOMÁTICO =================
         async function toggleCatalogo(id, isChecked) {
             try {
-                await db.collection('veiculos').doc(id).update({ emCatalogo: isChecked });
+                const updateData = { emCatalogo: isChecked };
+                if (isChecked) {
+                    // Ao ativar o catálogo, obrigatoriamente torna público no site
+                    updateData.status = 'publicado';
+                }
+                await db.collection('veiculos').doc(id).update(updateData);
                 await sincronizarMeta();
             } catch (err) {
                 console.error("Erro ao alterar catálogo:", err);
@@ -1007,7 +1028,6 @@
             }
         }
 
-        // Preview Automático
         let previewTimersAdmin = {};
         function startPreview(element, veiculoId) {
             const v = estoqueMock.find(veic => veic.id === veiculoId);
@@ -1027,7 +1047,6 @@
             if(v && v.fotos) element.src = v.fotos[0];
         }
 
-        // ================= FUNÇÃO DOWNLOAD ZIP =================
         async function baixarFotosZip(veiculoId) {
             const btn = document.getElementById(`btn-zip-${veiculoId}`);
             const originalHtml = btn.innerHTML;
@@ -1046,7 +1065,6 @@
                 const versaoFormatada = veiculo.versao.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
                 const nomeBase = `${marcaFormatada}_${versaoFormatada}`.toUpperCase();
 
-                // Fazer download de todas as imagens do ImgBB e adicionar ao ZIP
                 const promessas = veiculo.fotos.map(async (url, index) => {
                     const response = await fetch(url);
                     const blob = await response.blob();
@@ -1055,10 +1073,8 @@
 
                 await Promise.all(promessas);
                 
-                // Gerar o ZIP
                 const content = await zip.generateAsync({type: "blob"});
 
-                // Disparar o download
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(content);
                 link.download = `FOTOS_${nomeBase}.zip`;
@@ -1075,11 +1091,53 @@
             }
         }
 
+        // ================= FUNÇÃO CENTRAL DE FILTROS E RENDERIZAÇÃO =================
         function renderizarEstoque() {
             const container = document.getElementById('listaAdmin');
-            container.innerHTML = '';
+            
+            // 1. Povoar dropdowns de filtros dinamicamente
+            const marcasUnicas = [...new Set(estoqueMock.map(v => v.marca).filter(Boolean))].sort();
+            const anosUnicos = [...new Set(estoqueMock.map(v => v.ano).filter(Boolean))].sort((a,b) => b.localeCompare(a));
+            
+            const selectMarca = document.getElementById('filtroMarca');
+            const selectAno = document.getElementById('filtroAno');
+            
+            if (selectMarca && selectMarca.options.length <= 1) {
+                const currMarca = selectMarca.value;
+                selectMarca.innerHTML = '<option value="">Todas as Marcas</option>' + marcasUnicas.map(m => `<option value="${m}">${m}</option>`).join('');
+                selectMarca.value = currMarca;
+            }
+            if (selectAno && selectAno.options.length <= 1) {
+                const currAno = selectAno.value;
+                selectAno.innerHTML = '<option value="">Todos os Anos</option>' + anosUnicos.map(a => `<option value="${a}">${a}</option>`).join('');
+                selectAno.value = currAno;
+            }
 
-            [...estoqueMock].forEach(v => {
+            // 2. Coletar os valores dos filtros
+            const termoBusca = (document.getElementById('buscaNome')?.value || '').toLowerCase();
+            const marcaFiltro = document.getElementById('filtroMarca')?.value || '';
+            const anoFiltro = document.getElementById('filtroAno')?.value || '';
+            const statusFiltro = document.getElementById('filtroStatus')?.value || '';
+
+            // 3. Filtrar o Array
+            const estoqueFiltrado = estoqueMock.filter(v => {
+                const nomeCompleto = `${v.marca} ${v.versao} ${v.placa || ''}`.toLowerCase();
+                const matchBusca = termoBusca === '' || nomeCompleto.includes(termoBusca);
+                const matchMarca = marcaFiltro === '' || v.marca === marcaFiltro;
+                const matchAno = anoFiltro === '' || v.ano === anoFiltro;
+                const matchStatus = statusFiltro === '' || v.status === statusFiltro;
+
+                return matchBusca && matchMarca && matchAno && matchStatus;
+            });
+
+            container.innerHTML = '';
+            if (estoqueFiltrado.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-gray); grid-column: 1 / -1;">Nenhum veículo encontrado com os filtros atuais.</p>';
+                return;
+            }
+
+            // 4. Renderizar a lista
+            estoqueFiltrado.forEach(v => {
                 const imgCapa = v.fotos && v.fotos.length > 0 ? v.fotos[0] : 'https://via.placeholder.com/800x600?text=Sem+Foto';
                 const statusClass = v.status === 'publicado' ? 'publicado' : 'rascunho';
                 const btnPubText = v.status === 'publicado' ? '<i class="fas fa-cloud-download-alt"></i> Despublicar' : '<i class="fas fa-cloud-upload-alt"></i> Publicar';
@@ -1090,6 +1148,20 @@
                 const marcaLimpa = formatarMarca(v.marca);
                 const marcaParaLogo = Object.keys(logosMarcas).find(key => key.toLowerCase() === marcaLimpa.toLowerCase());
                 const logoHtml = marcaParaLogo ? `<img src="${logosMarcas[marcaParaLogo]}" alt="${marcaLimpa}" style="width: 25px; height: 25px; object-fit: contain; vertical-align: bottom; margin-right: 5px;">` : '';
+
+                // Calcular Dias no Estoque
+                let diasNoEstoque = 0;
+                if (v.dataCriacao && v.dataCriacao.toDate) {
+                    const dataCriacao = v.dataCriacao.toDate();
+                    const diffTime = Math.abs(new Date() - dataCriacao);
+                    diasNoEstoque = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                }
+                
+                let corDias = '#fff';
+                let bgDias = 'rgba(255,255,255,0.1)';
+                if (diasNoEstoque <= 10) { corDias = '#25d366'; bgDias = 'rgba(37, 211, 102, 0.15)'; } // Verde
+                else if (diasNoEstoque > 20 && diasNoEstoque <= 30) { corDias = '#ffeb3b'; bgDias = 'rgba(255, 235, 59, 0.15)'; } // Amarelo
+                else if (diasNoEstoque > 30) { corDias = '#ff4c4c'; bgDias = 'rgba(255, 76, 76, 0.15)'; } // Vermelho
 
                 let blocoFipe = '';
                 if (v.fipeValor) {
@@ -1130,6 +1202,7 @@
                             <span title="Quilometragem"><i class="fas fa-tachometer-alt"></i> ${v.km}</span>
                             <span title="Cor"><i class="fas fa-palette"></i> ${v.cor}</span>
                             <span title="Câmbio"><i class="fas fa-cog"></i> ${v.cambio}</span>
+                            <span title="Tempo de Estoque" style="color: ${corDias}; background: ${bgDias}; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="far fa-clock"></i> ${diasNoEstoque} dias</span>
                         </div>
                         
                         ${blocoFipe}
@@ -1283,12 +1356,10 @@
             }
         }
 
-        // ================= GERADOR DE DESCRIÇÃO POR I.A MULTIMODAL =================
         async function gerarDescricaoIA(botaoHtml) {
             const formContext = botaoHtml.closest('form').id;
             const prefixo = formContext === 'formEditar' ? 'edit_' : '';
 
-            // --- TRAVA DE SEGURANÇA: VERIFICAR FOTOS PRIMEIRO ---
             const fotosAtuais = formContext === 'formEditar' ? fotosEditar : fotosCriar;
             if (fotosAtuais.length === 0) {
                 alert("⚠️ Adicione pelo menos uma foto do veículo antes de gerar a descrição!\n\nA Inteligência Artificial precisa visualizar o carro para extrair os detalhes e criar um anúncio fiel aos opcionais reais.");
@@ -1324,7 +1395,6 @@
 
             const partsArray = [];
 
-            // Prompt otimizado
             const promptText = `Atue como um vendedor premium da loja "F&D Autos" e especialista técnico automotivo.
 Escreva uma descrição atraente e focada na realidade para leitura rápida no WhatsApp/Instagram.
 
@@ -1345,18 +1415,17 @@ ${templateDesejado}`;
 
             partsArray.push({ text: promptText });
 
-            // LÓGICA DE AMOSTRAGEM INTELIGENTE
             let indicesParaAnalisar = [];
             let totalFotos = fotosAtuais.length;
 
             if (totalFotos <= 5) {
                 for (let i = 0; i < totalFotos; i++) indicesParaAnalisar.push(i);
             } else {
-                indicesParaAnalisar.push(0); // 1ª foto
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.25)); // 25%
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); // 50% (Meio - Painel)
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.75)); // 75%
-                indicesParaAnalisar.push(totalFotos - 1); // Última foto
+                indicesParaAnalisar.push(0); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.25)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.75)); 
+                indicesParaAnalisar.push(totalFotos - 1); 
             }
 
             indicesParaAnalisar = [...new Set(indicesParaAnalisar)].sort((a,b) => a-b);
