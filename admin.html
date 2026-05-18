@@ -680,7 +680,7 @@
         let valorFipeAtual = "";
         let variacaoFipeAtual = 0;
         let estoqueMock = []; 
-        let fipeAutoUpdateRodou = false; // Controle para evitar loop do robô
+        let fipeAutoUpdateRodou = false; 
 
         function obterMesAnoAtual() {
             const dataHoje = new Date();
@@ -726,7 +726,6 @@
 
                 renderizarEstoque();
 
-                // Gatilho do Robô de Atualização Automática
                 if (!fipeAutoUpdateRodou && estoqueMock.length > 0) {
                     fipeAutoUpdateRodou = true; 
                     setTimeout(() => autoAtualizarFipesEstoque(), 2000); 
@@ -764,7 +763,6 @@
             });
         }
 
-        // ================= MOTOR CENTRAL DE CONSULTA FIPE (REUTILIZÁVEL) =================
         async function obterDadosFipe(marcaId, versaoId, anoVal, combustivelVal) {
             if (!marcaId || !versaoId || !anoVal) return null;
             
@@ -796,7 +794,6 @@
                     
                     resultado.valor = dadosFipe.Valor;
 
-                    // Cálculo da Variação do Mês Anterior
                     try {
                         const resTabelas = await fetch('https://brasilapi.com.br/api/fipe/tabelas/v1');
                         const tabelas = await resTabelas.json();
@@ -831,7 +828,6 @@
             return null;
         }
 
-        // Formato para mostrar no front-end de Criar Carro
         async function buscarPrecoFipe() {
             const marcaId = $('#marca').val();
             const versaoId = $('#versao').val();
@@ -872,15 +868,13 @@
             }
         }
 
-        // ================= ROBÔ AUTOMÁTICO PARA ATUALIZAR O ESTOQUE MENSALMENTE =================
         async function autoAtualizarFipesEstoque() {
             const mesAtual = obterMesAnoAtual();
-            console.log("Iniciando verificação do estoque para a competência:", mesAtual);
+            console.log("A iniciar verificação do stock para a competência:", mesAtual);
 
             for (let v of estoqueMock) {
-                // Se o carro não tem fipeMes, ou se a fipeMes for diferente do mês atual
                 if (v.fipeMes !== mesAtual && v.marcaId && v.versaoId && v.ano) {
-                    console.log(`Atualizando Tabela FIPE do veículo: ${v.marca} ${v.versao} (Última vez: ${v.fipeMes || 'Nunca'})`);
+                    console.log(`A atualizar Tabela FIPE do veículo: ${v.marca} ${v.versao} (Última vez: ${v.fipeMes || 'Nunca'})`);
                     
                     const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
                     
@@ -892,27 +886,24 @@
                                 fipeMes: mesAtual
                             });
                         } catch(err) {
-                            console.error(`Erro ao salvar atualização no DB para ${v.id}`, err);
+                            console.error(`Erro ao guardar atualização na base de dados para ${v.id}`, err);
                         }
                     }
                     
-                    // Intervalo de segurança para não bloquear o servidor da FIPE com muitas requisições
                     await new Promise(resolve => setTimeout(resolve, 1500)); 
                 }
             }
-            console.log("Verificação do estoque concluída!");
+            console.log("Verificação do stock concluída!");
         }
 
-        // ================= BOTÃO MANUAL DE ATUALIZAR TUDO =================
         async function forcarAtualizacaoFipe() {
             const btn = document.getElementById('btn-atualizar-fipe');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando Valores...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A atualizar Valores...';
             btn.disabled = true;
             btn.style.color = 'var(--brand-orange)';
             btn.style.borderColor = 'var(--brand-orange)';
 
-            // Enganamos o robô forçando o mês dos veículos localmente a ser diferente para ele re-rodar
             for(let v of estoqueMock) { v.fipeMes = '00/0000'; } 
             
             await autoAtualizarFipesEstoque();
@@ -1083,7 +1074,7 @@
             event.preventDefault();
             const btnSalvar = document.getElementById('btnSalvarCriar');
             btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando Fotos...';
+            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar Fotos...';
 
             const marcaText = $('#marca option:selected').text() || $('#marca').val();
             const versaoCustom = document.getElementById('versao_custom');
@@ -1115,7 +1106,7 @@
                     descricao: document.getElementById('descricao').value,
                     fipeValor: valorFipeAtual,
                     fipeVariacao: variacaoFipeAtual,
-                    fipeMes: obterMesAnoAtual(), // Salva o mês base da Fipe no momento da criação
+                    fipeMes: obterMesAnoAtual(), 
                     fotos: fotoUrls,
                     status: 'rascunho',
                     dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1430,7 +1421,7 @@
             
             const btnSalvar = document.getElementById('btnSalvarEdicao');
             btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A atualizar...';
 
             const id = document.getElementById('edit_id').value;
             const veiculoIndex = estoqueMock.findIndex(v => v.id === id);
@@ -1488,7 +1479,6 @@
             }
         }
 
-        // ================= FUNÇÃO PARA REDUZIR PESO DA FOTO PARA A I.A =================
         function redimensionarBase64(base64Str, maxWidth = 800) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -1515,7 +1505,6 @@
             });
         }
 
-        // ================= GERADOR DE DESCRIÇÃO POR I.A MULTIMODAL OTIMIZADO =================
         async function gerarDescricaoIA(botaoHtml) {
             const formContext = botaoHtml.closest('form').id;
             const prefixo = formContext === 'formEditar' ? 'edit_' : '';
@@ -1548,10 +1537,10 @@
             }
 
             const textoOriginalBtn = botaoHtml.innerHTML;
-            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A Processando...';
+            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A a processar...';
             botaoHtml.disabled = true;
 
-            const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
+            const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo a funcionar perfeitamente\n✔️ Pode trazer o seu mecânico para ver sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chame no WhatsApp para mais informações.`;
 
             const partsArray = [];
 
@@ -1574,7 +1563,7 @@ Sua missão é olhar as fotos em anexo e criar uma descrição ÚNICA, humana, d
 4. ✨ OPCIONAIS PRECISOS (Use ✅):
    - Defina exatamente a direção (ou é "Direção Hidráulica" ou "Direção Elétrica"). Nunca coloque as duas.
    - Defina o som de forma profissional (ou "Rádio MP3", ou "Central Multimídia", ou "Sistema de Som original"). PROIBIDO usar a palavra "som ambiente".
-5. ❌ PROIBIDO: Não invente opcionais que você não está vendo nas fotos.
+5. ❌ PROIBIDO: Não invente opcionais que você não está a ver nas fotos.
 6. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto:
 
 ${templateDesejado}`;
@@ -1622,7 +1611,7 @@ ${templateDesejado}`;
                     body: JSON.stringify({
                         contents: [{ parts: partsArray }],
                         generationConfig: {
-                            temperature: 0.7 
+                            temperature: 1.4 
                         }
                     })
                 });
