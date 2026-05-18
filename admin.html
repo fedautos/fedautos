@@ -161,7 +161,6 @@
         .details-info span { display: flex; align-items: center; gap: 5px; }
 
         .admin-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
-        /* AJUSTE DO BOTÃO DESPUBLICAR PARA NÃO VAZAR O TEXTO */
         .btn-action { flex: 1; min-width: unset; white-space: nowrap; background: transparent; padding: 8px 4px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.80rem; border: 1px solid currentColor; display: flex; justify-content: center; align-items: center; gap: 4px; }
         
         .btn-publicar { color: #25d366; }
@@ -318,7 +317,7 @@
                                     <div style="color: var(--text-gray); font-size: 0.85rem; font-weight: bold;">
                                         <i class="fas fa-chart-line"></i> FIPE: <span id="fipe-valor-criar" style="color: white;">Consultando...</span>
                                     </div>
-                                    <span id="fipe-variacao-criar" style="display: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;"></span>
+                                    <span id="fipe-variacao-criar" style="display: none;"></span>
                                 </div>
                             </div>
 
@@ -736,6 +735,7 @@
             });
 
             $('#ano').on('change', buscarPrecoFipe);
+            $('#combustivel').on('change', buscarPrecoFipe); 
 
             $('#edit_marca').on('change', function() {
                 const marcaId = $(this).val();
@@ -752,13 +752,14 @@
             const marcaId = $('#marca').val();
             const versaoId = $('#versao').val();
             const anoVal = $('#ano').val();
+            const combustivelVal = $('#combustivel').val();
 
             if (!marcaId || !versaoId || !anoVal) {
                 $('#fipe-display-criar').hide();
                 return;
             }
 
-            const anoBusca = anoVal.split('/')[0];
+            const anoModelo = anoVal.split('/')[1];
 
             $('#fipe-display-criar').css('display', 'flex');
             $('#fipe-valor-criar').text('Consultando...');
@@ -767,30 +768,80 @@
             try {
                 const resAnos = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${marcaId}/modelos/${versaoId}/anos`);
                 const anos = await resAnos.json();
-                const anoEncontrado = anos.find(a => a.codigo.startsWith(anoBusca));
+                
+                let sufixoCombustivel = "1";
+                if (combustivelVal === "Diesel") sufixoCombustivel = "3";
+
+                let anoEncontrado = anos.find(a => a.codigo === `${anoModelo}-${sufixoCombustivel}`);
+                
+                if (!anoEncontrado) {
+                    anoEncontrado = anos.find(a => a.codigo.startsWith(anoModelo));
+                }
+
+                const anoAtual = new Date().getFullYear();
+                if (!anoEncontrado && parseInt(anoModelo) >= anoAtual) {
+                    anoEncontrado = anos.find(a => a.codigo === `32000-${sufixoCombustivel}`);
+                    if(!anoEncontrado) anoEncontrado = anos.find(a => a.codigo.startsWith('32000'));
+                }
                 
                 if (anoEncontrado) {
                     const resValor = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${marcaId}/modelos/${versaoId}/anos/${anoEncontrado.codigo}`);
                     const dadosFipe = await resValor.json();
                     
                     valorFipeAtual = dadosFipe.Valor;
-                    variacaoFipeAtual = (Math.random() * 6 - 3).toFixed(1);
-                    const isPositivo = variacaoFipeAtual >= 0;
+                    variacaoFipeAtual = 0; 
                     
                     $('#fipe-valor-criar').text(valorFipeAtual);
-                    $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${isPositivo ? 'up' : 'down'}"></i> ${Math.abs(variacaoFipeAtual)}% no mês`)
-                        .css({
-                            'background': isPositivo ? 'rgba(37, 211, 102, 0.15)' : 'rgba(255, 76, 76, 0.15)',
-                            'color': isPositivo ? '#25d366' : '#ff4c4c',
-                            'display': 'inline-block'
-                        });
+
+                    // ==========================================
+                    // CÁLCULO DE VARIAÇÃO REAL (MÊS ANTERIOR)
+                    // ==========================================
+                    try {
+                        // 1. Pega as tabelas da Brasil API para descobrir o código do mês anterior
+                        const resTabelas = await fetch('https://brasilapi.com.br/api/fipe/tabelas/v1');
+                        const tabelas = await resTabelas.json();
+                        
+                        if (tabelas && tabelas.length >= 2) {
+                            const tabelaAnterior = tabelas[1].codigo; 
+                            const fipeCode = dadosFipe.CodigoFipe;
+                            
+                            // 2. Busca o histórico de preços desse código específico no mês anterior
+                            const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
+                            const listaAnterior = await resPrecoAnt.json();
+                            
+                            const anoBusca = parseInt(anoEncontrado.codigo.split('-')[0]); 
+                            const precoAnteriorObj = listaAnterior.find(p => p.anoModelo === anoBusca || (anoBusca === 32000 && p.anoModelo === 32000));
+                            
+                            if (precoAnteriorObj && precoAnteriorObj.valor) {
+                                const valAtualNum = parseFloat(valorFipeAtual.replace(/[R$\s.]/g, '').replace(',', '.'));
+                                const valAntNum = parseFloat(precoAnteriorObj.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
+                                
+                                if (valAntNum > 0) {
+                                    variacaoFipeAtual = ((valAtualNum - valAntNum) / valAntNum) * 100;
+                                    
+                                    const isZero = Math.abs(variacaoFipeAtual) < 0.01;
+                                    let icone = variacaoFipeAtual > 0 && !isZero ? 'up' : (variacaoFipeAtual < 0 && !isZero ? 'down' : 'minus');
+                                    let corBG = variacaoFipeAtual > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFipeAtual < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
+                                    let corTexto = variacaoFipeAtual > 0 && !isZero ? '#25d366' : (variacaoFipeAtual < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
+                                    
+                                    $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFipeAtual).toFixed(2)}%`).css({
+                                        'background': corBG,
+                                        'color': corTexto,
+                                        'display': 'inline-block'
+                                    });
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn("Aviso: Falha ao buscar a tabela do mês anterior.", err);
+                    }
 
                 } else {
-                    $('#fipe-valor-criar').text('Indisponível p/ este ano');
+                    $('#fipe-valor-criar').text('FIPE indisponível p/ este modelo/ano');
                     valorFipeAtual = "";
                 }
             } catch(e) {
-                $('#fipe-valor-criar').text('Erro ao consultar');
+                $('#fipe-valor-criar').text('Erro ao consultar servidor');
                 valorFipeAtual = "";
             }
         }
@@ -938,12 +989,10 @@
             }
         }
 
-        // ================= FUNÇÃO CATÁLOGO E STATUS AUTOMÁTICO =================
         async function toggleCatalogo(id, isChecked) {
             try {
                 const updateData = { emCatalogo: isChecked };
                 if (isChecked) {
-                    // Ao ativar o catálogo, obrigatoriamente torna público no site
                     updateData.status = 'publicado';
                 }
                 await db.collection('veiculos').doc(id).update(updateData);
@@ -996,7 +1045,7 @@
                     emCatalogo: false 
                 };
 
-                const docRef = await db.collection('veiculos').add(novoVeiculo);
+                await db.collection('veiculos').add(novoVeiculo);
                 await sincronizarMeta();
 
                 document.getElementById('formCriar').reset();
@@ -1091,11 +1140,9 @@
             }
         }
 
-        // ================= FUNÇÃO CENTRAL DE FILTROS E RENDERIZAÇÃO =================
         function renderizarEstoque() {
             const container = document.getElementById('listaAdmin');
             
-            // 1. Povoar dropdowns de filtros dinamicamente
             const marcasUnicas = [...new Set(estoqueMock.map(v => v.marca).filter(Boolean))].sort();
             const anosUnicos = [...new Set(estoqueMock.map(v => v.ano).filter(Boolean))].sort((a,b) => b.localeCompare(a));
             
@@ -1113,13 +1160,11 @@
                 selectAno.value = currAno;
             }
 
-            // 2. Coletar os valores dos filtros
             const termoBusca = (document.getElementById('buscaNome')?.value || '').toLowerCase();
             const marcaFiltro = document.getElementById('filtroMarca')?.value || '';
             const anoFiltro = document.getElementById('filtroAno')?.value || '';
             const statusFiltro = document.getElementById('filtroStatus')?.value || '';
 
-            // 3. Filtrar o Array
             const estoqueFiltrado = estoqueMock.filter(v => {
                 const nomeCompleto = `${v.marca} ${v.versao} ${v.placa || ''}`.toLowerCase();
                 const matchBusca = termoBusca === '' || nomeCompleto.includes(termoBusca);
@@ -1136,7 +1181,6 @@
                 return;
             }
 
-            // 4. Renderizar a lista
             estoqueFiltrado.forEach(v => {
                 const imgCapa = v.fotos && v.fotos.length > 0 ? v.fotos[0] : 'https://via.placeholder.com/800x600?text=Sem+Foto';
                 const statusClass = v.status === 'publicado' ? 'publicado' : 'rascunho';
@@ -1149,7 +1193,6 @@
                 const marcaParaLogo = Object.keys(logosMarcas).find(key => key.toLowerCase() === marcaLimpa.toLowerCase());
                 const logoHtml = marcaParaLogo ? `<img src="${logosMarcas[marcaParaLogo]}" alt="${marcaLimpa}" style="width: 25px; height: 25px; object-fit: contain; vertical-align: bottom; margin-right: 5px;">` : '';
 
-                // Calcular Dias no Estoque
                 let diasNoEstoque = 0;
                 if (v.dataCriacao && v.dataCriacao.toDate) {
                     const dataCriacao = v.dataCriacao.toDate();
@@ -1159,19 +1202,31 @@
                 
                 let corDias = '#fff';
                 let bgDias = 'rgba(255,255,255,0.1)';
-                if (diasNoEstoque <= 10) { corDias = '#25d366'; bgDias = 'rgba(37, 211, 102, 0.15)'; } // Verde
-                else if (diasNoEstoque > 20 && diasNoEstoque <= 30) { corDias = '#ffeb3b'; bgDias = 'rgba(255, 235, 59, 0.15)'; } // Amarelo
-                else if (diasNoEstoque > 30) { corDias = '#ff4c4c'; bgDias = 'rgba(255, 76, 76, 0.15)'; } // Vermelho
+                if (diasNoEstoque <= 10) { corDias = '#25d366'; bgDias = 'rgba(37, 211, 102, 0.15)'; } 
+                else if (diasNoEstoque > 20 && diasNoEstoque <= 30) { corDias = '#ffeb3b'; bgDias = 'rgba(255, 235, 59, 0.15)'; } 
+                else if (diasNoEstoque > 30) { corDias = '#ff4c4c'; bgDias = 'rgba(255, 76, 76, 0.15)'; } 
 
                 let blocoFipe = '';
                 if (v.fipeValor) {
-                    const isPositivo = v.fipeVariacao >= 0;
+                    let badgeVariacao = '';
+                    
+                    if (v.fipeVariacao !== undefined && v.fipeVariacao !== null) {
+                        const variacaoFloat = parseFloat(v.fipeVariacao);
+                        const isZero = Math.abs(variacaoFloat) < 0.01;
+                        
+                        const icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
+                        const corBg = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
+                        const corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
+
+                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">
+                                            <i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%
+                                         </span>`;
+                    }
+
                     blocoFipe = `
                         <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                             <span>FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>
-                            <span style="background: ${isPositivo ? 'rgba(37, 211, 102, 0.15)' : 'rgba(255, 76, 76, 0.15)'}; color: ${isPositivo ? '#25d366' : '#ff4c4c'}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">
-                                <i class="fas fa-arrow-${isPositivo ? 'up' : 'down'}"></i> ${Math.abs(v.fipeVariacao).toFixed(1)}%
-                            </span>
+                            ${badgeVariacao}
                         </div>
                     `;
                 }
@@ -1388,28 +1443,37 @@
             }
 
             const textoOriginalBtn = botaoHtml.innerHTML;
-            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A Analisando Fotos...';
+            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A Analisando Detalhes...';
             botaoHtml.disabled = true;
 
             const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo funcionando perfeitamente\n✔️ Pode trazer seu mecânico para olhar sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chama no WhatsApp pra mais informações.`;
 
             const partsArray = [];
 
-            const promptText = `Atue como um vendedor premium da loja "F&D Autos" e especialista técnico automotivo.
-Escreva uma descrição atraente e focada na realidade para leitura rápida no WhatsApp/Instagram.
+            const promptText = `Você é um Vendedor Premium e Consultor Técnico da loja "F&D Autos". 
+Sua missão é olhar as fotos em anexo e criar uma descrição ÚNICA, detalhista e atraente para o WhatsApp/Instagram, fugindo totalmente de textos robóticos e clichês repetitivos.
 
-- VEÍCULO: ${marca} ${versao}
-- ANO: ${ano} | KM: ${km} km | PREÇO: R$ ${preco}
-- COR: ${cor} | CÂMBIO: ${cambio} | COMBUSTÍVEL: ${combustivel}
+🚙 DADOS DO VEÍCULO:
+- Modelo: ${marca} ${versao}
+- Ano: ${ano} | KM: ${km} km | Valor: R$ ${preco}
+- Cor: ${cor} | Câmbio: ${cambio} | Combustível: ${combustivel}
 
-REGRAS DE CONTEÚDO E FORMATAÇÃO (MUITO IMPORTANTE):
-1. 🌟 TÍTULO: Crie um título chamativo na primeira linha. NÃO escreva frases feias como "movido a Flex" ou "utilitário automático". Seja sofisticado e foque no nome do carro e estado de conservação.
-2. 📝 TEXTO DIRETO: Parágrafos com no máximo 2 linhas. Vá direto ao ponto. Não repita excessivamente o ano, km e preço que já estão no cabeçalho, a menos que seja para destacar ("Apenas 45 mil km!").
-3. 👁️ ANÁLISE VISUAL (FOTOS): Eu te enviei algumas fotos estratégicas (exterior e interior) deste carro. Analise as imagens para identificar itens visíveis, como bancos de couro, central multimídia, rodas de liga leve, faróis de neblina, teto solar, etc. Inclua esses diferenciais na lista de opcionais se você os enxergar.
-4. ✨ ITENS DE SÉRIE EXATOS: Baseie-se na versão para completar a lista de série.
-   - PROIBIDO usar o termo "direção assistida". Você DEVE especificar se é "Direção Hidráulica" ou "Direção Elétrica".
-   - Use uma lista em tópicos com o emoji ✅.
-5. 🛡️ FECHAMENTO OBRIGATÓRIO: O texto DEVE terminar exatamente com o bloco abaixo, sem alterar ou apagar palavras:
+⚠️ REGRAS DE ANÁLISE E FORMATAÇÃO (SIGA À RISCA):
+1. 🌟 TÍTULO ÚNICO: Crie um título de uma linha super chamativo. Varie os inícios, não comece sempre com a mesma palavra. Destaque um detalhe real (ex: Conservação impecável, Baixa KM real, ou Versão completíssima).
+2. 👁️ ANÁLISE VISUAL PROFUNDA (O MAIS IMPORTANTE): Olhe as fotos que enviei! Descreva o que você ESTÁ VENDO de verdade. 
+   - Como estão os bancos? (É couro? Tecido premium? Estão intactos?)
+   - Qual o tipo de roda? (Tem calota ou é liga leve/esportiva original?)
+   - Tem central multimídia ou rádio? O painel tem detalhes diferentes? O volante tem botões de comando (multifuncional)?
+   - Faróis de milha/neblina visíveis?
+   Crie um pequeno parágrafo vendendo o estado de conservação baseado UNICAMENTE no que as fotos mostram.
+3. ✨ LISTA DE OPCIONAIS REAIS (Use ✅):
+   - Liste os opcionais VISÍVEIS nas fotos e os que são padrão INQUESTIONÁVEL desta versão.
+   - Seja específico: Em vez de "Som", diga "Multimídia com tela touch" (se ver na foto). Em vez de "Bancos", diga "Bancos em couro" (se ver na foto).
+   - Proibido usar "Direção assistida". Especifique Direção Hidráulica ou Elétrica conforme o modelo.
+4. ❌ O QUE NÃO FAZER: 
+   - Não repita dados do cabeçalho de forma óbvia no meio do texto.
+   - Não invente opcionais (nunca coloque teto solar ou multimídia se não houver foto provando ou se a versão não tiver).
+5. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto, sem alterar palavras:
 
 ${templateDesejado}`;
 
@@ -1418,13 +1482,15 @@ ${templateDesejado}`;
             let indicesParaAnalisar = [];
             let totalFotos = fotosAtuais.length;
 
-            if (totalFotos <= 5) {
+            if (totalFotos <= 8) {
                 for (let i = 0; i < totalFotos; i++) indicesParaAnalisar.push(i);
             } else {
                 indicesParaAnalisar.push(0); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.25)); 
+                indicesParaAnalisar.push(1); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.4)); 
                 indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.75)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.6)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.8)); 
                 indicesParaAnalisar.push(totalFotos - 1); 
             }
 
@@ -1451,7 +1517,7 @@ ${templateDesejado}`;
                     body: JSON.stringify({
                         contents: [{ parts: partsArray }],
                         generationConfig: {
-                            temperature: 0.3 
+                            temperature: 0.7 
                         }
                     })
                 });
