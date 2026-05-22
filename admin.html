@@ -559,7 +559,7 @@
                 </div>
 
                 <div class="input-group full-width" style="margin-top: 20px;">
-                    <label>Fotos do Veículo (Arraste para ordenar)</label>
+                    <label>Fotos do Veículo</label>
                     
                     <div style="display: flex; gap: 15px; margin-top: 10px;">
                         <label class="upload-area" for="fotos-input-editar" style="flex: 1; margin: 0;">
@@ -1066,7 +1066,7 @@
         }
         function dragEnd(e) { this.classList.remove('dragging'); }
 
-        // ================= SINCRONIZAÇÃO PC -> CELULAR VIA FIRESTORE E E-MAIL =================
+        // ================= SINCRONIZAÇÃO PC -> CELULAR VIA FIRESTORE =================
         let unsubscribeSync = null;
 
         async function abrirSyncCelular(contexto) {
@@ -1106,30 +1106,47 @@
             if (!userEmail) return alert('Autenticação necessária para enviar e-mail.');
 
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar c/ Prioridade...';
             btn.disabled = true;
 
             try {
-                // Tenta chamar o endpoint de email do servidor (se existir)
-                const response = await fetch('/api/send-email', {
+                // Serviço Gratuito FormSubmit - Envia e-mails diretamente pelo Javascript sem precisar de servidor
+                const response = await fetch(`https://formsubmit.co/ajax/${userEmail}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail, link: link, subject: 'F&D Autos - Upload de Fotos via Celular' })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        _subject: "🚨 [URGENTE / PRIORIDADE MÁXIMA] Link de Upload - F&D Autos",
+                        _template: "box",
+                        INSTRUÇÕES: "Abra este e-mail no seu celular e clique no link abaixo para enviar as fotos direto para o painel.",
+                        Link_Sincronizacao_Celular: link
+                    })
                 });
+
+                if (response.ok) {
+                    btn.innerHTML = '<i class="fas fa-check"></i> E-mail Enviado!';
+                    btn.style.background = '#25d366';
+                    btn.style.color = '#000';
+                    
+                    alert("✅ E-mail enviado com prioridade alta para " + userEmail + "!\n\n⚠️ SE FOR A SUA PRIMEIRA VEZ: O sistema anti-spam pode exigir que você ative o recebimento. Verifique a pasta de Spam/Lixo Eletrônico, procure o e-mail do 'FormSubmit' e clique em 'Activate' para liberar.");
+                } else {
+                    throw new Error('Falha no disparo do e-mail.');
+                }
             } catch (e) {
-                // Como não há garantia do backend de e-mail no contexto atual, assumimos sucesso no frontend
-                console.log("E-mail disparado para o servidor local.");
+                console.error(e);
+                btn.innerHTML = '<i class="fas fa-times"></i> Erro ao Enviar';
+                btn.style.background = '#ea4335';
+                btn.style.color = '#fff';
             }
 
             setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-check"></i> E-mail Enviado!';
-                btn.style.background = '#25d366';
-                setTimeout(() => {
-                    btn.innerHTML = originalHtml;
-                    btn.style.background = '#ea4335';
-                    btn.disabled = false;
-                }, 3000);
-            }, 800);
+                btn.innerHTML = originalHtml;
+                btn.style.background = '#ea4335';
+                btn.style.color = 'white';
+                btn.disabled = false;
+            }, 6000);
         }
 
         function fecharSyncModal() {
