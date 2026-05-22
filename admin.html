@@ -121,10 +121,14 @@
         .btn-remove-foto { position: absolute; top: 5px; right: 5px; background: rgba(255, 76, 76, 0.9); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10;}
         .btn-remove-foto:hover { background: #ff4c4c; transform: scale(1.1); }
 
-        /* Botões de Mover Imagem (Para funcionar fácil no celular) */
-        .move-controls { position: absolute; bottom: 5px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 5px; pointer-events: none; }
-        .move-controls button { background: rgba(0,0,0,0.8); color: white; border: 1px solid var(--brand-orange); border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.9rem; pointer-events: auto; font-weight: bold;}
-        .move-controls button:hover { background: var(--brand-orange); color: black; }
+        /* Botão Sincronizar Celular (Exibido Apenas no PC) */
+        .btn-celular-sync {
+            border: 2px dashed var(--brand-orange); border-radius: 8px; display: none; 
+            flex-direction: column; align-items: center; justify-content: center; 
+            cursor: pointer; background: rgba(244,129,63,0.05); transition: 0.3s; 
+            padding: 20px; text-align: center; margin-top: 10px;
+        }
+        .btn-celular-sync:hover { background: rgba(244,129,63,0.15); transform: translateY(-3px); }
 
         /* Botões Form */
         .btn-primario { 
@@ -177,7 +181,7 @@
         .btn-excluir { color: #ff4c4c; }
         .btn-excluir:hover { background: #ff4c4c; color: #fff; }
 
-        /* Estilos do Modal de Edição */
+        /* Estilos dos Modais (Edição e Sync) */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 4000; display: none;
@@ -200,6 +204,13 @@
         .slider-catalogo:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .switch-catalogo input:checked + .slider-catalogo { background-color: #25d366; }
         .switch-catalogo input:checked + .slider-catalogo:before { transform: translateX(20px); }
+
+        /* TELA DE UPLOAD VIA CELULAR (Sincronização) */
+        #mobile-upload-screen {
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 20px; text-align: center; background: var(--dark-bg);
+        }
+        #mobile-upload-screen .upload-area { width: 100%; max-width: 400px; margin: 30px 0; }
 
         /* =========================================
            RESPONSIVIDADE
@@ -227,6 +238,8 @@
             .upload-area { padding: 25px 15px; }
             .upload-area i { font-size: 2.5rem; }
             .upload-area p { font-size: 1rem; }
+
+            .btn-celular-sync { display: none !important; } /* Oculta o botão de sync se estiver no celular */
         }
     </style>
 </head>
@@ -257,6 +270,24 @@
             </form>
             <a href="#" class="esqueci-senha" onclick="recuperarSenha()"><i class="fas fa-key"></i> Esqueci minha senha</a>
         </div>
+    </div>
+
+    <div id="mobile-upload-screen">
+        <img src="logo.png" alt="F&D AUTOS" style="height: 60px; margin-bottom: 20px;" onerror="this.style.display='none'">
+        <h2 style="color: white; margin-bottom: 10px;"><i class="fas fa-sync-alt" style="color: var(--brand-orange);"></i> Sincronização de Fotos</h2>
+        <p style="color: var(--text-gray); font-size: 0.9rem;">Selecione as fotos na galeria do seu celular. Elas vão aparecer automaticamente no computador.</p>
+        
+        <input type="hidden" id="mobile-session-id">
+        
+        <label class="upload-area" for="fotos-input-mobile">
+            <i class="fas fa-camera"></i>
+            <p>Tocar para escolher as fotos</p>
+        </label>
+        <input type="file" id="fotos-input-mobile" class="fotos-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" onchange="enviarFotosMobile(event)">
+        
+        <button id="btn-mobile-upload" disabled class="btn-primario" style="max-width: 400px; background: #333; color: #888;">
+            Aguardando seleção...
+        </button>
     </div>
 
     <div id="admin-content">
@@ -379,12 +410,19 @@
                         </div>
 
                         <div class="input-group full-width" style="margin-top: 20px;">
-                            <label>Fotos do Veículo (Selecione na ordem correta, ou use as setas nas fotos para arrumar)</label>
+                            <label>Fotos do Veículo (Arraste para ordenar)</label>
                             
-                            <label class="upload-area" for="fotos-input-criar" style="display: block;">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                                <p>Clique aqui para adicionar fotos</p>
-                            </label>
+                            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                <label class="upload-area" for="fotos-input-criar" style="flex: 1; margin: 0;">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Clique aqui para adicionar fotos</p>
+                                </label>
+                                <div class="btn-celular-sync" id="btn-sync-criar" onclick="abrirSyncCelular('criar')" style="flex: 1; margin: 0;">
+                                    <i class="fas fa-mobile-alt" style="font-size: 2.5rem; color: var(--brand-orange); margin-bottom: 10px;"></i>
+                                    <p style="color: var(--text-gray); font-size: 1rem; font-weight: bold;">Adicionar via Celular</p>
+                                </div>
+                            </div>
+                            
                             <input type="file" id="fotos-input-criar" class="fotos-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" onchange="adicionarFotos(event, 'preview-criar', 'criar')">
                             
                             <div class="preview-fotos" id="preview-criar"></div>
@@ -515,10 +553,17 @@
                 <div class="input-group full-width" style="margin-top: 20px;">
                     <label>Fotos do Veículo</label>
                     
-                    <label class="upload-area" for="fotos-input-editar" style="display: block;">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Clique aqui para adicionar mais fotos</p>
-                    </label>
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <label class="upload-area" for="fotos-input-editar" style="flex: 1; margin: 0;">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Clique aqui para adicionar mais fotos</p>
+                        </label>
+                        <div class="btn-celular-sync" id="btn-sync-editar" onclick="abrirSyncCelular('editar')" style="flex: 1; margin: 0;">
+                            <i class="fas fa-mobile-alt" style="font-size: 2.5rem; color: var(--brand-orange); margin-bottom: 10px;"></i>
+                            <p style="color: var(--text-gray); font-size: 1rem; font-weight: bold;">Adicionar via Celular</p>
+                        </div>
+                    </div>
+
                     <input type="file" id="fotos-input-editar" class="fotos-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" onchange="adicionarFotos(event, 'preview-editar', 'editar')">
                     
                     <div class="preview-editar" id="preview-editar" style="display:flex; gap:15px; margin-top:15px; flex-wrap:wrap;"></div>
@@ -528,6 +573,22 @@
                     <i class="fas fa-save"></i> Salvar Alterações
                 </button>
             </form>
+        </div>
+    </div>
+
+    <div id="modalSync" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <button class="btn-fechar-modal" onclick="fecharSyncModal()"><i class="fas fa-times"></i></button>
+            <h3 style="margin-bottom: 20px; color: white;"><i class="fas fa-mobile-alt" style="color:var(--brand-orange)"></i> Upload pelo Celular</h3>
+            <p style="color:var(--text-gray); margin-bottom: 20px; font-size: 0.95rem;">Envie o link abaixo para o seu celular. Ao abrir o link e adicionar as fotos, elas vão aparecer no painel magicamente!</p>
+            
+            <input type="text" id="sync-link-input" readonly style="margin-bottom: 15px; text-align: center; font-size: 0.85rem; padding: 10px; cursor: copy;" onclick="this.select(); document.execCommand('copy'); alert('Link copiado!');">
+            
+            <a href="#" id="btn-enviar-email" class="btn-primario" style="text-decoration: none; margin-top: 0; background: #ea4335; color: white;">
+                <i class="fas fa-envelope"></i> Enviar Link por E-mail
+            </a>
+            
+            <p style="margin-top: 20px; font-size: 0.85rem; color: #ffeb3b; font-weight: bold;"><i class="fas fa-spinner fa-spin"></i> A aguardar que envie as fotos do telemóvel...</p>
         </div>
     </div>
 
@@ -565,26 +626,49 @@
         };
 
         let listenerFirestore = null; 
+        
+        // Verifica se é Telemóvel ou PC
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session');
+            
+            if (sessionId) {
+                // Se for um link de sincronização, abre direto a tela do celular sem pedir login
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('admin-content').style.display = 'none';
+                document.getElementById('mobile-upload-screen').style.display = 'flex';
+                document.getElementById('mobile-session-id').value = sessionId;
+                return;
+            }
+
             if (localStorage.getItem('adminEmailSaved')) {
                 document.getElementById('loginEmail').value = localStorage.getItem('adminEmailSaved');
                 document.getElementById('loginSenha').value = localStorage.getItem('adminSenhaSaved');
                 document.getElementById('lembrarLogin').checked = true;
             }
-        });
 
-        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('admin-content').style.display = 'block';
-                    iniciarPainelAdmin();
-                } else {
-                    document.getElementById('login-screen').style.display = 'flex';
-                    document.getElementById('admin-content').style.display = 'none';
-                    if(listenerFirestore) listenerFirestore(); 
-                }
+            // Exibir botões de sincronização se estiver no Computador
+            if (!isMobileDevice()) {
+                document.getElementById('btn-sync-criar').style.display = 'flex';
+                document.getElementById('btn-sync-editar').style.display = 'flex';
+            }
+
+            auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('admin-content').style.display = 'block';
+                        iniciarPainelAdmin();
+                    } else {
+                        document.getElementById('login-screen').style.display = 'flex';
+                        document.getElementById('admin-content').style.display = 'none';
+                        if(listenerFirestore) listenerFirestore(); 
+                    }
+                });
             });
         });
 
@@ -600,7 +684,6 @@
 
             try {
                 await auth.signInWithEmailAndPassword(email, senha);
-                
                 if (lembrar) {
                     localStorage.setItem('adminEmailSaved', email);
                     localStorage.setItem('adminSenhaSaved', senha);
@@ -608,7 +691,6 @@
                     localStorage.removeItem('adminEmailSaved');
                     localStorage.removeItem('adminSenhaSaved');
                 }
-                
             } catch(error) {
                 alert("Erro ao entrar. Verifique o seu e-mail e palavra-passe.");
                 btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no Painel';
@@ -632,9 +714,7 @@
 
         function fazerLogout(event) {
             event.preventDefault();
-            auth.signOut().then(() => {
-                window.location.href = 'index.html'; 
-            });
+            auth.signOut().then(() => { window.location.href = 'index.html'; });
         }
 
         function formatarMarca(marca) {
@@ -642,29 +722,20 @@
             let m = marca.toUpperCase();
             if (m.includes("VW") || m.includes("VOLKSWAGEM") || m === 'VW - VOLKSWAGEN') return "Volkswagen";
             if (m.includes("GM - CHEVROLET") || m === "GM") return "Chevrolet";
-            let formatado = marca.replace(/^GM\s*-\s*/i, "");
-            return formatado;
+            return marca.replace(/^GM\s*-\s*/i, "");
         }
 
         async function uploadParaImgBB(base64Data) {
             const base64Limpo = base64Data.split(',')[1];
             const formData = new FormData();
             formData.append("image", base64Limpo);
-            
             try {
-                const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-                    method: "POST",
-                    body: formData
-                });
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
                 const data = await response.json();
-                
-                if (data.success) {
-                    return data.data.url;
-                } else {
-                    throw new Error("Erro na API do ImgBB: " + (data.error ? data.error.message : "Desconhecido"));
-                }
+                if (data.success) return data.data.url;
+                else throw new Error("Erro na API do ImgBB.");
             } catch (err) {
-                throw new Error("Falha na conexão com o servidor de imagens: " + err.message);
+                throw new Error("Falha na conexão com o servidor de imagens.");
             }
         }
 
@@ -676,9 +747,7 @@
 
         function formatarPlaca(input) {
             let value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); 
-            if (value.length > 3) {
-                value = value.substring(0, 3) + '-' + value.substring(3, 7);
-            }
+            if (value.length > 3) value = value.substring(0, 3) + '-' + value.substring(3, 7);
             input.value = value;
         }
 
@@ -694,23 +763,16 @@
 
         function iniciarPainelAdmin() {
             $('.select2-search').select2({
-                placeholder: "Selecione ou digite...",
-                allowClear: true,
-                tags: true, 
+                placeholder: "Selecione ou digite...", allowClear: true, tags: true, 
                 language: { noResults: function() { return "Nenhum resultado encontrado"; } }
             });
 
             $('.select2-search-modal').select2({
-                placeholder: "Selecione ou digite...",
-                allowClear: true,
-                tags: true,
-                dropdownParent: $('#modalEdicao'), 
+                placeholder: "Selecione ou digite...", allowClear: true, tags: true, dropdownParent: $('#modalEdicao'), 
                 language: { noResults: function() { return "Nenhum resultado encontrado"; } }
             });
 
-            $(document).on('select2:open', () => {
-                document.querySelector('.select2-search__field').focus();
-            });
+            $(document).on('select2:open', () => { document.querySelector('.select2-search__field').focus(); });
 
             gerarAnosDinamicos();
             carregarMarcasFIPE();
@@ -738,20 +800,16 @@
             });
 
             $('#marca').on('change', function() {
-                const marcaId = $(this).val();
-                carregarVersoesFIPE(marcaId, '#versao');
+                carregarVersoesFIPE($(this).val(), '#versao');
                 $('#fipe-display-criar').hide();
                 $('#versao_custom').hide().val("");
             });
             
             $('#versao').on('change', function() {
                 buscarPrecoFipe();
-                const textoSelecionado = $('#versao option:selected').text();
-                if (textoSelecionado && $(this).val()) {
-                    $('#versao_custom').val(textoSelecionado).show();
-                } else {
-                    $('#versao_custom').hide();
-                }
+                const texto = $('#versao option:selected').text();
+                if (texto && $(this).val()) $('#versao_custom').val(texto).show();
+                else $('#versao_custom').hide();
             });
 
             $('#ano').on('change', buscarPrecoFipe);
@@ -769,7 +827,6 @@
 
         async function obterDadosFipe(marcaId, versaoId, anoVal, combustivelVal) {
             if (!marcaId || !versaoId || !anoVal) return null;
-            
             const anoModelo = anoVal.split('/')[1];
             let resultado = { valor: "", variacao: 0 };
 
@@ -777,58 +834,38 @@
                 const resAnos = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${marcaId}/modelos/${versaoId}/anos`);
                 const anos = await resAnos.json();
                 
-                let sufixoCombustivel = "1";
-                if (combustivelVal === "Diesel") sufixoCombustivel = "3";
-
+                let sufixoCombustivel = combustivelVal === "Diesel" ? "3" : "1";
                 let anoEncontrado = anos.find(a => a.codigo === `${anoModelo}-${sufixoCombustivel}`);
                 
-                if (!anoEncontrado) {
-                    anoEncontrado = anos.find(a => a.codigo.startsWith(anoModelo));
-                }
-
+                if (!anoEncontrado) anoEncontrado = anos.find(a => a.codigo.startsWith(anoModelo));
                 const anoAtual = new Date().getFullYear();
                 if (!anoEncontrado && parseInt(anoModelo) >= anoAtual) {
-                    anoEncontrado = anos.find(a => a.codigo === `32000-${sufixoCombustivel}`);
-                    if(!anoEncontrado) anoEncontrado = anos.find(a => a.codigo.startsWith('32000'));
+                    anoEncontrado = anos.find(a => a.codigo === `32000-${sufixoCombustivel}`) || anos.find(a => a.codigo.startsWith('32000'));
                 }
                 
                 if (anoEncontrado) {
                     const resValor = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${marcaId}/modelos/${versaoId}/anos/${anoEncontrado.codigo}`);
                     const dadosFipe = await resValor.json();
-                    
                     resultado.valor = dadosFipe.Valor;
 
                     try {
                         const resTabelas = await fetch('https://brasilapi.com.br/api/fipe/tabelas/v1');
                         const tabelas = await resTabelas.json();
-                        
                         if (tabelas && tabelas.length >= 2) {
-                            const tabelaAnterior = tabelas[1].codigo; 
-                            const fipeCode = dadosFipe.CodigoFipe;
-                            
-                            const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
+                            const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${dadosFipe.CodigoFipe}?tabela_referencia=${tabelas[1].codigo}`);
                             const listaAnterior = await resPrecoAnt.json();
-                            
                             const anoBusca = parseInt(anoEncontrado.codigo.split('-')[0]); 
                             const precoAnteriorObj = listaAnterior.find(p => p.anoModelo === anoBusca || (anoBusca === 32000 && p.anoModelo === 32000));
-                            
                             if (precoAnteriorObj && precoAnteriorObj.valor) {
                                 const valAtualNum = parseFloat(resultado.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
                                 const valAntNum = parseFloat(precoAnteriorObj.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
-                                
-                                if (valAntNum > 0) {
-                                    resultado.variacao = ((valAtualNum - valAntNum) / valAntNum) * 100;
-                                }
+                                if (valAntNum > 0) resultado.variacao = ((valAtualNum - valAntNum) / valAntNum) * 100;
                             }
                         }
-                    } catch (err) {
-                        console.warn("Aviso: Falha ao buscar a tabela do mês anterior.", err);
-                    }
+                    } catch (err) {}
                     return resultado;
                 }
-            } catch(e) {
-                console.error('Erro ao consultar FIPE:', e);
-            }
+            } catch(e) {}
             return null;
         }
 
@@ -838,10 +875,7 @@
             const anoVal = $('#ano').val();
             const combustivelVal = $('#combustivel').val();
 
-            if (!marcaId || !versaoId || !anoVal) {
-                $('#fipe-display-criar').hide();
-                return;
-            }
+            if (!marcaId || !versaoId || !anoVal) { $('#fipe-display-criar').hide(); return; }
 
             $('#fipe-display-criar').css('display', 'flex');
             $('#fipe-valor-criar').text('Consultando...');
@@ -860,95 +894,52 @@
                 let corBG = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                 let corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
                 
-                $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`).css({
-                    'background': corBG,
-                    'color': corTexto,
-                    'display': 'inline-block'
-                });
+                $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`).css({'background': corBG, 'color': corTexto, 'display': 'inline-block'});
             } else {
                 $('#fipe-valor-criar').text('FIPE indisponível p/ este modelo/ano');
-                valorFipeAtual = "";
-                variacaoFipeAtual = 0;
+                valorFipeAtual = ""; variacaoFipeAtual = 0;
             }
         }
 
         async function autoAtualizarFipesEstoque() {
             const mesAtual = obterMesAnoAtual();
-            console.log("A iniciar verificação do stock para a competência:", mesAtual);
-
             for (let v of estoqueMock) {
                 if (v.fipeMes !== mesAtual && v.marcaId && v.versaoId && v.ano) {
-                    console.log(`A atualizar Tabela FIPE do veículo: ${v.marca} ${v.versao}`);
-                    
                     const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
-                    
                     if (novosDadosFipe && novosDadosFipe.valor) {
-                        try {
-                            await db.collection('veiculos').doc(v.id).update({
-                                fipeValor: novosDadosFipe.valor,
-                                fipeVariacao: novosDadosFipe.variacao,
-                                fipeMes: mesAtual
-                            });
-                        } catch(err) {
-                            console.error(`Erro ao guardar atualização na base de dados para ${v.id}`, err);
-                        }
+                        try { await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); } catch(err) {}
                     }
-                    
                     await new Promise(resolve => setTimeout(resolve, 1500)); 
                 }
             }
-            console.log("Verificação do stock concluída!");
         }
 
         async function forcarAtualizacaoFipe() {
             const btn = document.getElementById('btn-atualizar-fipe');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A atualizar Valores...';
-            btn.disabled = true;
-            btn.style.color = 'var(--brand-orange)';
-            btn.style.borderColor = 'var(--brand-orange)';
+            btn.disabled = true; btn.style.color = 'var(--brand-orange)'; btn.style.borderColor = 'var(--brand-orange)';
 
             const mesAtual = obterMesAnoAtual();
-            
             for(let v of estoqueMock) { 
-                console.log(`Forçando Tabela FIPE do veículo: ${v.marca} ${v.versao}`);
                 const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
-                
                 if (novosDadosFipe && novosDadosFipe.valor) {
-                    try {
-                        await db.collection('veiculos').doc(v.id).update({
-                            fipeValor: novosDadosFipe.valor,
-                            fipeVariacao: novosDadosFipe.variacao,
-                            fipeMes: mesAtual
-                        });
-                    } catch(err) {
-                        console.error(`Erro ao guardar atualização na base de dados para ${v.id}`, err);
-                    }
+                    try { await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); } catch(err) {}
                 }
                 await new Promise(resolve => setTimeout(resolve, 1500)); 
             } 
             
-            btn.innerHTML = '<i class="fas fa-check"></i> Concluído!';
-            btn.style.color = '#25d366';
-            btn.style.borderColor = '#25d366';
-            
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                btn.style.color = 'var(--text-gray)';
-                btn.style.borderColor = 'transparent';
-            }, 3000);
+            btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'; btn.style.color = '#25d366'; btn.style.borderColor = '#25d366';
+            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; btn.style.color = 'var(--text-gray)'; btn.style.borderColor = 'transparent'; }, 3000);
         }
 
         function gerarAnosDinamicos() {
             const anoAtual = new Date().getFullYear();
             let optionsAno = '<option value="">Selecione o ano...</option>';
             for (let i = anoAtual + 1; i >= 2010; i--) {
-                optionsAno += `<option value="${i}/${i}">${i}/${i}</option>`;
-                optionsAno += `<option value="${i-1}/${i}">${i-1}/${i}</option>`;
+                optionsAno += `<option value="${i}/${i}">${i}/${i}</option><option value="${i-1}/${i}">${i-1}/${i}</option>`;
             }
-            $('#ano').html(optionsAno);
-            $('#edit_ano').html(optionsAno);
+            $('#ano').html(optionsAno); $('#edit_ano').html(optionsAno);
         }
 
         async function carregarMarcasFIPE() {
@@ -957,9 +948,8 @@
                 const marcas = await response.json();
                 let options = '<option value="">Selecione a marca...</option>';
                 marcas.forEach(marca => { options += `<option value="${marca.codigo}">${marca.nome}</option>`; });
-                $('#marca').html(options);
-                $('#edit_marca').html(options);
-            } catch (error) { console.error("Erro ao carregar FIPE:", error); }
+                $('#marca').html(options); $('#edit_marca').html(options);
+            } catch (error) {}
         }
 
         async function carregarVersoesFIPE(marcaId, selectTarget) {
@@ -971,23 +961,21 @@
                 let options = '<option value="">Selecione a versão...</option>';
                 data.modelos.forEach(modelo => { options += `<option value="${modelo.codigo}">${modelo.nome}</option>`; });
                 $(selectTarget).html(options);
-            } catch (error) { console.error("Erro ao carregar FIPE Versões:", error); }
+            } catch (error) {}
         }
 
         let fotosCriar = []; 
         let fotosEditar = []; 
 
+        // Adicionar fotos mantendo a ORDEM EXACTA da seleção (usando Promise.all)
         async function adicionarFotos(event, containerId, context) {
             const files = event.target.files;
             if (files.length === 0) return;
 
-            // USA PROMISE.ALL PARA MANTER A ORDEM EXATA DA SELEÇÃO DO UTILIZADOR
             const promessasDeArquivos = Array.from(files).map(file => {
                 return new Promise((resolve) => {
                     const reader = new FileReader();
-                    reader.onload = function(e) {
-                        resolve({ dataUrl: e.target.result });
-                    }
+                    reader.onload = function(e) { resolve({ dataUrl: e.target.result }); }
                     reader.readAsDataURL(file);
                 });
             });
@@ -1001,7 +989,6 @@
                 fotosEditar.push(...novasFotos);
                 renderizarPreview(containerId, fotosEditar, context);
             }
-            
             event.target.value = ''; 
         }
 
@@ -1024,22 +1011,10 @@
                 btnRemove.innerHTML = '×';
                 btnRemove.classList.add('btn-remove-foto');
                 btnRemove.type = 'button'; 
-                btnRemove.onclick = function(e) {
-                    e.stopPropagation();
-                    removerFoto(index, context, containerId);
-                };
-
-                // BOTÕES DE SETA PARA MOVER FOTOS (SOLUÇÃO PARA TELEMÓVEL)
-                const moveControls = document.createElement('div');
-                moveControls.classList.add('move-controls');
-                moveControls.innerHTML = `
-                    <button type="button" onclick="moverFoto(${index}, -1, '${context}', '${containerId}', event)">◀</button>
-                    <button type="button" onclick="moverFoto(${index}, 1, '${context}', '${containerId}', event)">▶</button>
-                `;
+                btnRemove.onclick = function(e) { e.stopPropagation(); removerFoto(index, context, containerId); };
 
                 wrapper.appendChild(img);
                 wrapper.appendChild(btnRemove);
-                wrapper.appendChild(moveControls);
                 container.appendChild(wrapper);
 
                 wrapper.addEventListener('dragstart', dragStart);
@@ -1049,89 +1024,128 @@
             });
         }
 
-        function moverFoto(index, direcao, context, containerId, event) {
-            if (event) event.stopPropagation();
-            
-            const arrayFotos = context === 'criar' ? fotosCriar : fotosEditar;
-            const novoIndex = index + direcao;
-            
-            if (novoIndex < 0 || novoIndex >= arrayFotos.length) return;
-            
-            const item = arrayFotos.splice(index, 1)[0];
-            arrayFotos.splice(novoIndex, 0, item);
-            
-            renderizarPreview(containerId, arrayFotos, context);
-        }
-
         function removerFoto(index, context, containerId) {
-            if (context === 'criar') {
-                fotosCriar.splice(index, 1);
-                renderizarPreview(containerId, fotosCriar, context);
-            } else if (context === 'editar') {
-                fotosEditar.splice(index, 1);
-                renderizarPreview(containerId, fotosEditar, context);
-            }
+            if (context === 'criar') { fotosCriar.splice(index, 1); renderizarPreview(containerId, fotosCriar, context); } 
+            else if (context === 'editar') { fotosEditar.splice(index, 1); renderizarPreview(containerId, fotosEditar, context); }
         }
 
         let dragSrcEl;
-        function dragStart(e) {
-            this.classList.add('dragging');
-            dragSrcEl = this;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', this.dataset.index);
-        }
+        function dragStart(e) { this.classList.add('dragging'); dragSrcEl = this; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.index); }
         function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
         function dragDrop(e) {
             e.stopPropagation();
-            const sourceIndex = dragSrcEl.dataset.index;
-            const targetIndex = this.dataset.index;
-            const context = this.dataset.context;
-            const containerId = context === 'criar' ? 'preview-criar' : 'preview-editar';
+            const sourceIndex = dragSrcEl.dataset.index; const targetIndex = this.dataset.index;
+            const context = this.dataset.context; const containerId = context === 'criar' ? 'preview-criar' : 'preview-editar';
             const targetArray = context === 'criar' ? fotosCriar : fotosEditar;
 
             if (sourceIndex === targetIndex) return;
-
             const item = targetArray.splice(sourceIndex, 1)[0];
             targetArray.splice(targetIndex, 0, item);
             renderizarPreview(containerId, targetArray, context);
         }
         function dragEnd(e) { this.classList.remove('dragging'); }
 
-        async function sincronizarMeta() {
+        // ================= SINCRONIZAÇÃO PC -> CELULAR VIA FIRESTORE =================
+        let unsubscribeSync = null;
+
+        async function abrirSyncCelular(contexto) {
+            const sessionId = db.collection('sessoes_upload').doc().id;
+            
+            await db.collection('sessoes_upload').doc(sessionId).set({
+                status: 'aguardando', fotos: [], contexto: contexto,
+                criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            const link = window.location.origin + window.location.pathname + '?session=' + sessionId;
+            
+            $('#sync-link-input').val(link);
+            $('#btn-enviar-email').attr('href', `mailto:?subject=Upload de Fotos F&D Autos&body=Clique neste link pelo seu celular para enviar as fotos do veiculo: ${link}`);
+            $('#modalSync').css('display', 'flex');
+
+            // Fica "escutando" o banco de dados. Quando o telemóvel enviar, ele apanha aqui!
+            unsubscribeSync = db.collection('sessoes_upload').doc(sessionId).onSnapshot(doc => {
+                const data = doc.data();
+                if(data && data.status === 'concluido' && data.fotos.length > 0) {
+                    const formatadas = data.fotos.map(url => ({ dataUrl: url }));
+                    if(contexto === 'criar') {
+                        fotosCriar.push(...formatadas);
+                        renderizarPreview('preview-criar', fotosCriar, 'criar');
+                    } else {
+                        fotosEditar.push(...formatadas);
+                        renderizarPreview('preview-editar', fotosEditar, 'editar');
+                    }
+                    fecharSyncModal();
+                    db.collection('sessoes_upload').doc(sessionId).delete(); 
+                }
+            });
+        }
+
+        function fecharSyncModal() {
+            $('#modalSync').css('display', 'none');
+            if(unsubscribeSync) unsubscribeSync();
+        }
+
+        // FUNÇÃO QUE RODA APENAS NO CELULAR PARA ENVIAR AS FOTOS
+        async function enviarFotosMobile(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+
+            const btn = $('#btn-mobile-upload');
+            btn.prop('disabled', true).css({background: 'var(--brand-orange)', color: 'black'}).html('<i class="fas fa-spinner fa-spin"></i> A enviar... (0/' + files.length + ')');
+
+            const sessionId = $('#mobile-session-id').val();
+            const uploadedUrls = [];
+
             try {
-                const response = await fetch('/api/sync', { method: 'POST' });
-                const data = await response.json();
-            } catch (err) {
-                console.error("Falha ao conectar com o gatilho de sync:", err);
+                // Manter a ordem no telemóvel também
+                for(let i=0; i<files.length; i++) {
+                    btn.html(`<i class="fas fa-spinner fa-spin"></i> A enviar... (${i+1}/${files.length})`);
+                    
+                    const base64 = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = e => resolve(e.target.result);
+                        reader.readAsDataURL(files[i]);
+                    });
+                    
+                    const base64Reduzido = await redimensionarBase64(base64, 1200); 
+                    const url = await uploadParaImgBB(base64Reduzido);
+                    if(url) uploadedUrls.push(url);
+                }
+
+                await db.collection('sessoes_upload').doc(sessionId).update({
+                    status: 'concluido', fotos: uploadedUrls
+                });
+
+                btn.html('<i class="fas fa-check"></i> Fotos Enviadas!').css({background: '#25d366', color: 'black'});
+                alert("As fotos já apareceram no computador! Pode fechar esta página.");
+            } catch(e) {
+                alert("Erro ao enviar: " + e.message);
+                btn.prop('disabled', false).html('Tentar Novamente').css({background: '#333', color: '#888'});
             }
+        }
+        // ==============================================================================
+
+        async function sincronizarMeta() {
+            try { await fetch('/api/sync', { method: 'POST' }); } catch (err) {}
         }
 
         async function toggleCatalogo(id, isChecked) {
             try {
                 const updateData = { emCatalogo: isChecked };
-                if (isChecked) {
-                    updateData.status = 'publicado';
-                }
+                if (isChecked) updateData.status = 'publicado';
                 await db.collection('veiculos').doc(id).update(updateData);
                 await sincronizarMeta();
-            } catch (err) {
-                console.error("Erro ao alterar catálogo:", err);
-                alert("Erro de comunicação ao atualizar status no catálogo.");
-            }
+            } catch (err) { alert("Erro de comunicação ao atualizar status."); }
         }
 
         async function salvarVeiculo(event) {
             event.preventDefault();
             const btnSalvar = document.getElementById('btnSalvarCriar');
-            btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar Fotos...';
+            btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar Fotos...';
 
             const marcaText = $('#marca option:selected').text() || $('#marca').val();
             const versaoCustom = document.getElementById('versao_custom');
-            const versaoText = (versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') 
-                                ? versaoCustom.value 
-                                : ($('#versao option:selected').text() || $('#versao').val());
-            const placaVal = document.getElementById('placa').value;
+            const versaoText = (versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') ? versaoCustom.value : ($('#versao option:selected').text() || $('#versao').val());
 
             try {
                 const fotoUrls = [];
@@ -1141,57 +1155,32 @@
                 }
 
                 const novoVeiculo = {
-                    placa: placaVal,
-                    marcaId: document.getElementById('marca').value,
-                    marca: formatarMarca(marcaText),
-                    versaoId: document.getElementById('versao').value,
-                    versao: versaoText,
-                    tipo: document.getElementById('tipo').value,
-                    preco: document.getElementById('preco').value,
-                    ano: document.getElementById('ano').value,
-                    km: document.getElementById('km').value,
-                    cor: document.getElementById('cor').value,
-                    cambio: document.getElementById('cambio').value,
-                    combustivel: document.getElementById('combustivel').value,
-                    descricao: document.getElementById('descricao').value,
-                    fipeValor: valorFipeAtual,
-                    fipeVariacao: variacaoFipeAtual,
-                    fipeMes: obterMesAnoAtual(), 
-                    fotos: fotoUrls,
-                    status: 'rascunho',
-                    dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
-                    emCatalogo: false 
+                    placa: document.getElementById('placa').value,
+                    marcaId: document.getElementById('marca').value, marca: formatarMarca(marcaText),
+                    versaoId: document.getElementById('versao').value, versao: versaoText,
+                    tipo: document.getElementById('tipo').value, preco: document.getElementById('preco').value,
+                    ano: document.getElementById('ano').value, km: document.getElementById('km').value,
+                    cor: document.getElementById('cor').value, cambio: document.getElementById('cambio').value,
+                    combustivel: document.getElementById('combustivel').value, descricao: document.getElementById('descricao').value,
+                    fipeValor: valorFipeAtual, fipeVariacao: variacaoFipeAtual, fipeMes: obterMesAnoAtual(), 
+                    fotos: fotoUrls, status: 'rascunho', dataCriacao: firebase.firestore.FieldValue.serverTimestamp(), emCatalogo: false 
                 };
 
                 await db.collection('veiculos').add(novoVeiculo);
                 await sincronizarMeta();
 
-                document.getElementById('formCriar').reset();
-                $('.select2-search').val(null).trigger('change'); 
-                
-                fotosCriar = [];
-                renderizarPreview('preview-criar', fotosCriar, 'criar');
-                $('#fipe-display-criar').hide();
-                $('#versao_custom').hide();
-                valorFipeAtual = "";
-                
-            } catch (error) {
-                console.error("Erro ao salvar:", error);
-                alert("ERRO DETALHADO: " + error.message);
-            } finally {
-                btnSalvar.disabled = false;
-                btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Anúncio';
-            }
+                document.getElementById('formCriar').reset(); $('.select2-search').val(null).trigger('change'); 
+                fotosCriar = []; renderizarPreview('preview-criar', fotosCriar, 'criar');
+                $('#fipe-display-criar').hide(); $('#versao_custom').hide(); valorFipeAtual = "";
+            } catch (error) { alert("ERRO DETALHADO: " + error.message); } 
+            finally { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Anúncio'; }
         }
 
         async function salvarPrecoInline(id, novoPreco) {
             if (novoPreco.trim() !== "") {
                 await db.collection('veiculos').doc(id).update({ preco: novoPreco });
-
                 const veiculo = estoqueMock.find(v => v.id === id);
-                if (veiculo && veiculo.emCatalogo !== false) {
-                    await sincronizarMeta();
-                }
+                if (veiculo && veiculo.emCatalogo !== false) await sincronizarMeta();
             }
         }
 
@@ -1200,83 +1189,45 @@
             const v = estoqueMock.find(veic => veic.id === veiculoId);
             if(!v || !v.fotos || v.fotos.length <= 1) return;
             let idx = 1;
-            previewTimersAdmin[veiculoId] = setInterval(() => {
-                element.src = v.fotos[idx];
-                idx = (idx + 1) % v.fotos.length;
-            }, 1200);
+            previewTimersAdmin[veiculoId] = setInterval(() => { element.src = v.fotos[idx]; idx = (idx + 1) % v.fotos.length; }, 1200);
         }
         function stopPreview(element, veiculoId) {
-            if(previewTimersAdmin[veiculoId]) {
-                clearInterval(previewTimersAdmin[veiculoId]);
-                delete previewTimersAdmin[veiculoId];
-            }
+            if(previewTimersAdmin[veiculoId]) { clearInterval(previewTimersAdmin[veiculoId]); delete previewTimersAdmin[veiculoId]; }
             const v = estoqueMock.find(veic => veic.id === veiculoId);
             if(v && v.fotos) element.src = v.fotos[0];
         }
 
         async function baixarFotosZip(veiculoId) {
             const btn = document.getElementById(`btn-zip-${veiculoId}`);
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-
+            const originalHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
             try {
                 const veiculo = estoqueMock.find(v => v.id === veiculoId);
-                if(!veiculo || !veiculo.fotos || veiculo.fotos.length === 0) {
-                    alert("Nenhuma foto disponível para download.");
-                    return;
-                }
-
+                if(!veiculo || !veiculo.fotos || veiculo.fotos.length === 0) return alert("Nenhuma foto disponível.");
                 const zip = new JSZip();
                 const marcaFormatada = veiculo.marca.replace(/[^a-zA-Z0-9]/g, '');
                 const versaoFormatada = veiculo.versao.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
                 const nomeBase = `${marcaFormatada}_${versaoFormatada}`.toUpperCase();
 
                 const promessas = veiculo.fotos.map(async (url, index) => {
-                    const response = await fetch(url);
-                    const blob = await response.blob();
+                    const response = await fetch(url); const blob = await response.blob();
                     zip.file(`${nomeBase}_FOTO_${index + 1}.jpg`, blob);
                 });
-
                 await Promise.all(promessas);
-                
                 const content = await zip.generateAsync({type: "blob"});
-
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = `FOTOS_${nomeBase}.zip`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-            } catch (error) {
-                console.error("Erro ao baixar fotos:", error);
-                alert("Ocorreu um erro ao gerar o arquivo ZIP das fotos.");
-            } finally {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
+                const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `FOTOS_${nomeBase}.zip`;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            } catch (error) { alert("Erro ao gerar ZIP."); } 
+            finally { btn.innerHTML = originalHtml; btn.disabled = false; }
         }
 
         function renderizarEstoque() {
             const container = document.getElementById('listaAdmin');
-            
             const marcasUnicas = [...new Set(estoqueMock.map(v => v.marca).filter(Boolean))].sort();
             const anosUnicos = [...new Set(estoqueMock.map(v => v.ano).filter(Boolean))].sort((a,b) => b.localeCompare(a));
             
-            const selectMarca = document.getElementById('filtroMarca');
-            const selectAno = document.getElementById('filtroAno');
-            
-            if (selectMarca && selectMarca.options.length <= 1) {
-                const currMarca = selectMarca.value;
-                selectMarca.innerHTML = '<option value="">Todas as Marcas</option>' + marcasUnicas.map(m => `<option value="${m}">${m}</option>`).join('');
-                selectMarca.value = currMarca;
-            }
-            if (selectAno && selectAno.options.length <= 1) {
-                const currAno = selectAno.value;
-                selectAno.innerHTML = '<option value="">Todos os Anos</option>' + anosUnicos.map(a => `<option value="${a}">${a}</option>`).join('');
-                selectAno.value = currAno;
-            }
+            const selectMarca = document.getElementById('filtroMarca'); const selectAno = document.getElementById('filtroAno');
+            if (selectMarca && selectMarca.options.length <= 1) { const currMarca = selectMarca.value; selectMarca.innerHTML = '<option value="">Todas as Marcas</option>' + marcasUnicas.map(m => `<option value="${m}">${m}</option>`).join(''); selectMarca.value = currMarca; }
+            if (selectAno && selectAno.options.length <= 1) { const currAno = selectAno.value; selectAno.innerHTML = '<option value="">Todos os Anos</option>' + anosUnicos.map(a => `<option value="${a}">${a}</option>`).join(''); selectAno.value = currAno; }
 
             const termoBusca = (document.getElementById('buscaNome')?.value || '').toLowerCase();
             const marcaFiltro = document.getElementById('filtroMarca')?.value || '';
@@ -1285,19 +1236,11 @@
 
             const estoqueFiltrado = estoqueMock.filter(v => {
                 const nomeCompleto = `${v.marca} ${v.versao} ${v.placa || ''}`.toLowerCase();
-                const matchBusca = termoBusca === '' || nomeCompleto.includes(termoBusca);
-                const matchMarca = marcaFiltro === '' || v.marca === marcaFiltro;
-                const matchAno = anoFiltro === '' || v.ano === anoFiltro;
-                const matchStatus = statusFiltro === '' || v.status === statusFiltro;
-
-                return matchBusca && matchMarca && matchAno && matchStatus;
+                return (termoBusca === '' || nomeCompleto.includes(termoBusca)) && (marcaFiltro === '' || v.marca === marcaFiltro) && (anoFiltro === '' || v.ano === anoFiltro) && (statusFiltro === '' || v.status === statusFiltro);
             });
 
             container.innerHTML = '';
-            if (estoqueFiltrado.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-gray); grid-column: 1 / -1;">Nenhum veículo encontrado com os filtros atuais.</p>';
-                return;
-            }
+            if (estoqueFiltrado.length === 0) { container.innerHTML = '<p style="color: var(--text-gray); grid-column: 1 / -1;">Nenhum veículo encontrado.</p>'; return; }
 
             estoqueFiltrado.forEach(v => {
                 const imgCapa = v.fotos && v.fotos.length > 0 ? v.fotos[0] : 'https://via.placeholder.com/800x600?text=Sem+Foto';
@@ -1313,13 +1256,11 @@
 
                 let diasNoEstoque = 0;
                 if (v.dataCriacao && v.dataCriacao.toDate) {
-                    const dataCriacao = v.dataCriacao.toDate();
-                    const diffTime = Math.abs(new Date() - dataCriacao);
+                    const diffTime = Math.abs(new Date() - v.dataCriacao.toDate());
                     diasNoEstoque = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 }
                 
-                let corDias = '#fff';
-                let bgDias = 'rgba(255,255,255,0.1)';
+                let corDias = '#fff'; let bgDias = 'rgba(255,255,255,0.1)';
                 if (diasNoEstoque <= 10) { corDias = '#25d366'; bgDias = 'rgba(37, 211, 102, 0.15)'; } 
                 else if (diasNoEstoque > 20 && diasNoEstoque <= 30) { corDias = '#ffeb3b'; bgDias = 'rgba(255, 235, 59, 0.15)'; } 
                 else if (diasNoEstoque > 30) { corDias = '#ff4c4c'; bgDias = 'rgba(255, 76, 76, 0.15)'; } 
@@ -1327,26 +1268,14 @@
                 let blocoFipe = '';
                 if (v.fipeValor) {
                     let badgeVariacao = '';
-                    
                     if (v.fipeVariacao !== undefined && v.fipeVariacao !== null) {
-                        const variacaoFloat = parseFloat(v.fipeVariacao);
-                        const isZero = Math.abs(variacaoFloat) < 0.01;
-                        
+                        const variacaoFloat = parseFloat(v.fipeVariacao); const isZero = Math.abs(variacaoFloat) < 0.01;
                         const icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
                         const corBg = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                         const corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
-
-                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;" title="Competência: ${v.fipeMes || 'Desconhecida'}">
-                                            <i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%
-                                         </span>`;
+                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;" title="Competência: ${v.fipeMes || 'Desconhecida'}"><i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
                     }
-
-                    blocoFipe = `
-                        <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                            <span title="FIPE verificada em: ${v.fipeMes || 'Antiga'}">FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>
-                            ${badgeVariacao}
-                        </div>
-                    `;
+                    blocoFipe = `<div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span title="FIPE verificada em: ${v.fipeMes || 'Antiga'}">FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>${badgeVariacao}</div>`;
                 }
 
                 container.innerHTML += `
@@ -1355,73 +1284,43 @@
                         <span class="status-badge ${statusClass}">${v.status}</span>
                         <span class="fotos-badge"><i class="fas fa-camera"></i> ${qtdFotos}</span>
                         <span class="placa-badge"><i class="fas fa-id-card"></i> ${placaText}</span>
-                        
-                        <button class="btn-download-zip" id="btn-zip-${v.id}" onclick="baixarFotosZip('${v.id}')" title="Baixar todas as fotos">
-                            <i class="fas fa-download"></i>
-                        </button>
-
-                        <img src="${imgCapa}" 
-                             alt="${marcaLimpa} ${v.versao}"
-                             onmouseenter="startPreview(this, '${v.id}')"
-                             onmouseleave="stopPreview(this, '${v.id}')"
-                             ontouchstart="startPreview(this, '${v.id}')"
-                             ontouchend="stopPreview(this, '${v.id}')">
+                        <button class="btn-download-zip" id="btn-zip-${v.id}" onclick="baixarFotosZip('${v.id}')" title="Baixar todas as fotos"><i class="fas fa-download"></i></button>
+                        <img src="${imgCapa}" alt="${marcaLimpa} ${v.versao}" onmouseenter="startPreview(this, '${v.id}')" onmouseleave="stopPreview(this, '${v.id}')" ontouchstart="startPreview(this, '${v.id}')" ontouchend="stopPreview(this, '${v.id}')">
                     </div>
-                    
                     <div class="admin-card-body">
                         <h3 style="display: flex; align-items: center;">${logoHtml} ${marcaLimpa} ${v.versao} (${v.ano})</h3>
-                        
                         <div class="details-info">
-                            <span title="Quilometragem"><i class="fas fa-tachometer-alt"></i> ${v.km}</span>
-                            <span title="Cor"><i class="fas fa-palette"></i> ${v.cor}</span>
-                            <span title="Câmbio"><i class="fas fa-cog"></i> ${v.cambio}</span>
-                            <span title="Tempo de Estoque" style="color: ${corDias}; background: ${bgDias}; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="far fa-clock"></i> ${diasNoEstoque} dias</span>
+                            <span title="Quilometragem"><i class="fas fa-tachometer-alt"></i> ${v.km}</span><span title="Cor"><i class="fas fa-palette"></i> ${v.cor}</span>
+                            <span title="Câmbio"><i class="fas fa-cog"></i> ${v.cambio}</span><span title="Tempo de Estoque" style="color: ${corDias}; background: ${bgDias}; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="far fa-clock"></i> ${diasNoEstoque} dias</span>
                         </div>
-                        
                         ${blocoFipe}
-
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
                             <span style="color: var(--brand-orange); font-weight: bold; font-size: 1.2rem;">R$</span>
-                            <input type="text" value="${v.preco}" 
-                                oninput="formatarNumero(this)" 
-                                onblur="salvarPrecoInline('${v.id}', this.value)" 
-                                style="background: transparent; border: none; color: var(--brand-orange); font-weight: bold; font-size: 1.2rem; width: 110px; outline: none; border-bottom: 1px dashed transparent; transition: 0.3s; padding: 0;" 
-                                onfocus="this.style.borderBottom='1px dashed var(--brand-orange)'" 
-                                onfocusout="this.style.borderBottom='1px dashed transparent'">
+                            <input type="text" value="${v.preco}" oninput="formatarNumero(this)" onblur="salvarPrecoInline('${v.id}', this.value)" style="background: transparent; border: none; color: var(--brand-orange); font-weight: bold; font-size: 1.2rem; width: 110px; outline: none; border-bottom: 1px dashed transparent; transition: 0.3s; padding: 0;" onfocus="this.style.borderBottom='1px dashed var(--brand-orange)'" onfocusout="this.style.borderBottom='1px dashed transparent'">
                             <i class="fas fa-pen" style="color: var(--text-gray); cursor: pointer; font-size: 0.9rem;" onclick="this.previousElementSibling.focus()" title="Editar Preço"></i>
-                            
                             <div style="display: flex; flex-direction: column; align-items: center; margin-left: auto;">
                                 <span style="font-size: 0.7rem; color: var(--text-gray); margin-bottom: 4px; font-weight: bold; text-transform: uppercase;">Catálogo</span>
-                                <label class="switch-catalogo" title="Ativar/Desativar no WhatsApp">
-                                    <input type="checkbox" onchange="toggleCatalogo('${v.id}', this.checked)" ${v.emCatalogo !== false ? 'checked' : ''}>
-                                    <span class="slider-catalogo"></span>
-                                </label>
+                                <label class="switch-catalogo" title="Ativar/Desativar no WhatsApp"><input type="checkbox" onchange="toggleCatalogo('${v.id}', this.checked)" ${v.emCatalogo !== false ? 'checked' : ''}><span class="slider-catalogo"></span></label>
                             </div>
                         </div>
-
                         <div class="admin-actions">
                             <button class="btn-action ${btnPubClass}" onclick="alternarStatus('${v.id}')">${btnPubText}</button>
                             <button class="btn-action btn-editar" onclick="abrirModalEdicao('${v.id}')"><i class="fas fa-edit"></i> Editar</button>
                             <button class="btn-action btn-excluir" onclick="excluirVeiculo('${v.id}')"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
-                </div>
-                `;
+                </div>`;
             });
         }
 
         async function alternarStatus(id) {
             const veiculo = estoqueMock.find(v => v.id === id);
-            if (veiculo) {
-                const novoStatus = veiculo.status === 'publicado' ? 'rascunho' : 'publicado';
-                await db.collection('veiculos').doc(id).update({ status: novoStatus });
-            }
+            if (veiculo) await db.collection('veiculos').doc(id).update({ status: veiculo.status === 'publicado' ? 'rascunho' : 'publicado' });
         }
 
         async function excluirVeiculo(id) {
-            if(confirm("Deseja realmente apagar este anúncio definitivamente da nuvem e do catálogo do WhatsApp?")) {
-                await db.collection('veiculos').doc(id).delete();
-                await sincronizarMeta();
+            if(confirm("Deseja realmente apagar este anúncio definitivamente?")) {
+                await db.collection('veiculos').doc(id).delete(); await sincronizarMeta();
             }
         }
 
@@ -1435,57 +1334,35 @@
             document.getElementById('edit_km').value = veiculo.km || '';
             document.getElementById('edit_descricao').value = veiculo.descricao || '';
 
-            $('#edit_tipo').val(veiculo.tipo).trigger('change');
-            $('#edit_ano').val(veiculo.ano).trigger('change');
-            $('#edit_cor').val(veiculo.cor).trigger('change');
-            $('#edit_cambio').val(veiculo.cambio).trigger('change');
+            $('#edit_tipo').val(veiculo.tipo).trigger('change'); $('#edit_ano').val(veiculo.ano).trigger('change');
+            $('#edit_cor').val(veiculo.cor).trigger('change'); $('#edit_cambio').val(veiculo.cambio).trigger('change');
             $('#edit_combustivel').val(veiculo.combustivel).trigger('change');
 
-            // Pausa os gatilhos visuais para não apagar a versão sem querer
             $('#edit_marca').off('change');
 
-            if ($('#edit_marca').find("option[value='" + veiculo.marcaId + "']").length) {
-                $('#edit_marca').val(veiculo.marcaId).trigger('change.select2');
-            } else {
-                let newMarcaOption = new Option(veiculo.marca, veiculo.marcaId, true, true);
-                $('#edit_marca').append(newMarcaOption).trigger('change.select2');
-            }
+            if ($('#edit_marca').find("option[value='" + veiculo.marcaId + "']").length) $('#edit_marca').val(veiculo.marcaId).trigger('change.select2');
+            else { let newMarcaOption = new Option(veiculo.marca, veiculo.marcaId, true, true); $('#edit_marca').append(newMarcaOption).trigger('change.select2'); }
             
-            // CARREGA AS VERSÕES E ESPERA O SERVIDOR RESPONDER ANTES DE CONTINUAR
             await carregarVersoesFIPE(veiculo.marcaId, '#edit_versao');
 
-            // AGORA SIM ELE COLOCA A VERSÃO DO CARRO, GARANTINDO QUE NÃO FICA VAZIO
-            if ($('#edit_versao').find("option[value='" + veiculo.versaoId + "']").length) {
-                $('#edit_versao').val(veiculo.versaoId).trigger('change.select2');
-            } else {
-                let newVersaoOption = new Option(veiculo.versao, veiculo.versaoId, true, true);
-                $('#edit_versao').append(newVersaoOption).trigger('change.select2');
-            }
+            if ($('#edit_versao').find("option[value='" + veiculo.versaoId + "']").length) $('#edit_versao').val(veiculo.versaoId).trigger('change.select2');
+            else { let newVersaoOption = new Option(veiculo.versao, veiculo.versaoId, true, true); $('#edit_versao').append(newVersaoOption).trigger('change.select2'); }
 
-            // Devolve o gatilho para caso o usuário decida trocar a marca manualmente
             $('#edit_marca').on('change', function() { carregarVersoesFIPE($(this).val(), '#edit_versao'); });
-
             $('#edit_versao_custom').val(veiculo.versao).show();
 
             fotosEditar = veiculo.fotos ? veiculo.fotos.map(url => ({ dataUrl: url })) : [];
             renderizarPreview('preview-editar', fotosEditar, 'editar');
 
-            document.getElementById('modalEdicao').style.display = 'flex';
-            document.body.style.overflow = 'hidden'; 
+            document.getElementById('modalEdicao').style.display = 'flex'; document.body.style.overflow = 'hidden'; 
         }
 
-        function fecharModalEdicao() {
-            document.getElementById('modalEdicao').style.display = 'none';
-            document.body.style.overflow = 'auto';
-            fotosEditar = []; 
-        }
+        function fecharModalEdicao() { document.getElementById('modalEdicao').style.display = 'none'; document.body.style.overflow = 'auto'; fotosEditar = []; }
 
         async function salvarEdicao(event) {
             event.preventDefault();
-            
             const btnSalvar = document.getElementById('btnSalvarEdicao');
-            btnSalvar.disabled = true;
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A atualizar...';
+            btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A atualizar...';
 
             const id = document.getElementById('edit_id').value;
             const veiculoIndex = estoqueMock.findIndex(v => v.id === id);
@@ -1495,75 +1372,42 @@
                     const fotoUrls = [];
                     for (let i = 0; i < fotosEditar.length; i++) {
                         const fileData = fotosEditar[i].dataUrl;
-                        if (fileData.startsWith('http')) {
-                            fotoUrls.push(fileData);
-                        } else {
-                            const url = await uploadParaImgBB(fileData);
-                            if(url) fotoUrls.push(url);
-                        }
+                        if (fileData.startsWith('http')) fotoUrls.push(fileData);
+                        else { const url = await uploadParaImgBB(fileData); if(url) fotoUrls.push(url); }
                     }
 
                     const editVersaoCustom = document.getElementById('edit_versao_custom');
-                    const versaoTextDef = (editVersaoCustom.style.display !== 'none' && editVersaoCustom.value.trim() !== '') 
-                                                        ? editVersaoCustom.value 
-                                                        : ($('#edit_versao option:selected').text() || $('#edit_versao').val());
+                    const versaoTextDef = (editVersaoCustom.style.display !== 'none' && editVersaoCustom.value.trim() !== '') ? editVersaoCustom.value : ($('#edit_versao option:selected').text() || $('#edit_versao').val());
 
                     const dadosAtualizados = {
                         placa: document.getElementById('edit_placa').value,
-                        marcaId: $('#edit_marca').val(),
-                        marca: formatarMarca($('#edit_marca option:selected').text() || $('#edit_marca').val()),
-                        versaoId: $('#edit_versao').val(),
-                        versao: versaoTextDef,
-                        tipo: $('#edit_tipo').val(),
-                        preco: document.getElementById('edit_preco').value,
-                        ano: $('#edit_ano').val(),
-                        km: document.getElementById('edit_km').value,
-                        cor: $('#edit_cor').val(),
-                        cambio: $('#edit_cambio').val(),
-                        combustivel: $('#edit_combustivel').val(),
-                        descricao: document.getElementById('edit_descricao').value,
+                        marcaId: $('#edit_marca').val(), marca: formatarMarca($('#edit_marca option:selected').text() || $('#edit_marca').val()),
+                        versaoId: $('#edit_versao').val(), versao: versaoTextDef,
+                        tipo: $('#edit_tipo').val(), preco: document.getElementById('edit_preco').value,
+                        ano: $('#edit_ano').val(), km: document.getElementById('edit_km').value,
+                        cor: $('#edit_cor').val(), cambio: $('#edit_cambio').val(),
+                        combustivel: $('#edit_combustivel').val(), descricao: document.getElementById('edit_descricao').value,
                         fotos: fotoUrls
                     };
 
                     await db.collection('veiculos').doc(id).update(dadosAtualizados);
-                    
-                    const veiculoAntigo = estoqueMock[veiculoIndex];
-                    if (veiculoAntigo.emCatalogo !== false) {
-                        await sincronizarMeta();
-                    }
-
+                    if (estoqueMock[veiculoIndex].emCatalogo !== false) await sincronizarMeta();
                     fecharModalEdicao();
-                } catch (error) {
-                    console.error("Erro ao atualizar:", error);
-                    alert("ERRO DETALHADO: " + error.message);
-                } finally {
-                    btnSalvar.disabled = false;
-                    btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
-                }
+                } catch (error) { alert("ERRO DETALHADO: " + error.message); } 
+                finally { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações'; }
             }
         }
 
         function redimensionarBase64(base64Str, maxWidth = 800) {
             return new Promise((resolve) => {
-                const img = new Image();
-                img.src = base64Str;
+                const img = new Image(); img.src = base64Str;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    
-                    if (width > height && width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    } else if (height > width && height > maxWidth) {
-                        width = Math.round((width * maxWidth) / height);
-                        height = maxWidth;
-                    }
-                    
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
+                    let width = img.width; let height = img.height;
+                    if (width > height && width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } 
+                    else if (height > width && height > maxWidth) { width = Math.round((width * maxWidth) / height); height = maxWidth; }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
                     resolve(canvas.toDataURL('image/jpeg', 0.7)); 
                 };
             });
@@ -1574,42 +1418,24 @@
             const prefixo = formContext === 'formEditar' ? 'edit_' : '';
 
             const fotosAtuais = formContext === 'formEditar' ? fotosEditar : fotosCriar;
-            if (fotosAtuais.length === 0) {
-                alert("⚠️ Adicione pelo menos uma foto do veículo antes de gerar a descrição!");
-                return;
-            }
+            if (fotosAtuais.length === 0) return alert("⚠️ Adicione pelo menos uma foto do veículo antes de gerar a descrição!");
 
-            let marca = $(`#${prefixo}marca option:selected`).text() || '';
-            marca = formatarMarca(marca);
-
+            let marca = $(`#${prefixo}marca option:selected`).text() || ''; marca = formatarMarca(marca);
             const versaoCustom = document.getElementById(`${prefixo}versao_custom`);
-            const versao = (versaoCustom && versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') 
-                            ? versaoCustom.value 
-                            : ($(`#${prefixo}versao option:selected`).text() || '');
+            const versao = (versaoCustom && versaoCustom.style.display !== 'none' && versaoCustom.value.trim() !== '') ? versaoCustom.value : ($(`#${prefixo}versao option:selected`).text() || '');
             let ano = document.getElementById(`${prefixo}ano`).value || '';
-            
-            const km = document.getElementById(`${prefixo}km`).value || '';
-            const preco = document.getElementById(`${prefixo}preco`).value || '';
-            const tipo = document.getElementById(`${prefixo}tipo`).value || '';
-            const cor = document.getElementById(`${prefixo}cor`).value || '';
-            const cambio = document.getElementById(`${prefixo}cambio`).value || '';
-            const combustivel = document.getElementById(`${prefixo}combustivel`).value || '';
+            const km = document.getElementById(`${prefixo}km`).value || ''; const preco = document.getElementById(`${prefixo}preco`).value || '';
+            const tipo = document.getElementById(`${prefixo}tipo`).value || ''; const cor = document.getElementById(`${prefixo}cor`).value || '';
+            const cambio = document.getElementById(`${prefixo}cambio`).value || ''; const combustivel = document.getElementById(`${prefixo}combustivel`).value || '';
 
-            if (!marca || !versao || marca.includes("Selecione") || versao.includes("Selecione")) {
-                alert("Por favor, selecione ao menos a Marca e a Versão antes de gerar a descrição.");
-                return;
-            }
+            if (!marca || !versao || marca.includes("Selecione") || versao.includes("Selecione")) return alert("Selecione ao menos a Marca e a Versão antes de gerar a descrição.");
 
-            const textoOriginalBtn = botaoHtml.innerHTML;
-            botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A a processar...';
-            botaoHtml.disabled = true;
+            const textoOriginalBtn = botaoHtml.innerHTML; botaoHtml.innerHTML = '<i class="fas fa-spinner fa-spin"></i> I.A a processar...'; botaoHtml.disabled = true;
 
             const templateDesejado = `✔️ Carro de procedência\n✔️ Veículo pronto para transferência\n✔️ Tudo a funcionar perfeitamente\n✔️ Pode trazer o seu mecânico para ver sem problemas\n✔️ Fazemos simulação e aprovação de crédito\n✔️ Negócio sério e transparente\n📲 Chame no WhatsApp para mais informações.`;
 
             const partsArray = [];
-
-            const promptText = `Você é um Vendedor Premium e Consultor Técnico da loja "F&D Autos". 
-Sua missão é olhar as fotos em anexo e criar uma descrição ÚNICA, humana, detalhista e atraente para o WhatsApp/Instagram.
+            const promptText = `Você é um Vendedor Premium e Consultor Técnico da loja "F&D Autos". Sua missão é olhar as fotos em anexo e criar uma descrição ÚNICA, humana, detalhista e atraente para o WhatsApp/Instagram.
 
 🚙 DADOS DO VEÍCULO:
 - Modelo: ${marca} ${versao}
@@ -1634,68 +1460,36 @@ ${templateDesejado}`;
 
             partsArray.push({ text: promptText });
 
-            let indicesParaAnalisar = [];
-            let totalFotos = fotosAtuais.length;
-
-            if (totalFotos <= 8) {
-                for (let i = 0; i < totalFotos; i++) indicesParaAnalisar.push(i);
-            } else {
-                indicesParaAnalisar.push(0); 
-                indicesParaAnalisar.push(1); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.4)); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.6)); 
-                indicesParaAnalisar.push(Math.floor(totalFotos * 0.8)); 
-                indicesParaAnalisar.push(totalFotos - 1); 
+            let indicesParaAnalisar = []; let totalFotos = fotosAtuais.length;
+            if (totalFotos <= 8) { for (let i = 0; i < totalFotos; i++) indicesParaAnalisar.push(i); } 
+            else {
+                indicesParaAnalisar.push(0); indicesParaAnalisar.push(1); indicesParaAnalisar.push(Math.floor(totalFotos * 0.4)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.5)); indicesParaAnalisar.push(Math.floor(totalFotos * 0.6)); 
+                indicesParaAnalisar.push(Math.floor(totalFotos * 0.8)); indicesParaAnalisar.push(totalFotos - 1); 
             }
-
             indicesParaAnalisar = [...new Set(indicesParaAnalisar)].sort((a,b) => a-b);
 
             try {
                 for(let i of indicesParaAnalisar) {
                     let base64Data = fotosAtuais[i].dataUrl;
-                    
                     if(base64Data.startsWith('data:image')) {
                         let base64Reduzido = await redimensionarBase64(base64Data);
-                        
                         const mimeType = base64Reduzido.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/)[1];
-                        const base64Limpo = base64Reduzido.split(',')[1];
-                        partsArray.push({
-                            inlineData: {
-                                mimeType: mimeType,
-                                data: base64Limpo
-                            }
-                        });
+                        partsArray.push({ inlineData: { mimeType: mimeType, data: base64Reduzido.split(',')[1] } });
                     }
                 }
 
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: partsArray }],
-                        generationConfig: {
-                            temperature: 1.4 
-                        }
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: partsArray }], generationConfig: { temperature: 1.4 } })
                 });
-
                 const data = await response.json();
                 
-                if (data.candidates && data.candidates.length > 0) {
-                    const descricaoGerada = data.candidates[0].content.parts[0].text;
-                    document.getElementById(`${prefixo}descricao`).value = descricaoGerada.trim();
-                } else {
-                    throw new Error("A IA não retornou resultados.");
-                }
+                if (data.candidates && data.candidates.length > 0) document.getElementById(`${prefixo}descricao`).value = data.candidates[0].content.parts[0].text.trim();
+                else throw new Error("A IA não retornou resultados.");
             } catch (error) {
-                console.error("Erro na I.A.:", error);
-                const textoFallback = `🚗 ${marca} ${versao} impecável na cor ${cor}!\n\n🚘 Veículo em perfeito estado de conservação, pronto para o seu dia a dia.\n\n✨ Confira os destaques:\n✅ Ar-condicionado\n✅ Vidros e travas elétricas\n✅ Ótimo estado de conservação\n\n${templateDesejado}`;
-                document.getElementById(`${prefixo}descricao`).value = textoFallback;
-            } finally {
-                botaoHtml.innerHTML = textoOriginalBtn;
-                botaoHtml.disabled = false;
-            }
+                document.getElementById(`${prefixo}descricao`).value = `🚗 ${marca} ${versao} impecável na cor ${cor}!\n\n🚘 Veículo em perfeito estado de conservação, pronto para o seu dia a dia.\n\n✨ Confira os destaques:\n✅ Ar-condicionado\n✅ Vidros e travas elétricas\n✅ Ótimo estado de conservação\n\n${templateDesejado}`;
+            } finally { botaoHtml.innerHTML = textoOriginalBtn; botaoHtml.disabled = false; }
         }
     </script>
 </body>
