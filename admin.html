@@ -118,8 +118,13 @@
         .preview-item-wrapper.dragging { opacity: 0.4; border: 2px dashed var(--brand-orange); }
         .preview-item { width: 100%; height: 100%; object-fit: cover; }
         
-        .btn-remove-foto { position: absolute; top: 5px; right: 5px; background: rgba(255, 76, 76, 0.9); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .btn-remove-foto { position: absolute; top: 5px; right: 5px; background: rgba(255, 76, 76, 0.9); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10;}
         .btn-remove-foto:hover { background: #ff4c4c; transform: scale(1.1); }
+
+        /* Botões de Mover Imagem (Para funcionar fácil no celular) */
+        .move-controls { position: absolute; bottom: 5px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 5px; pointer-events: none; }
+        .move-controls button { background: rgba(0,0,0,0.8); color: white; border: 1px solid var(--brand-orange); border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.9rem; pointer-events: auto; font-weight: bold;}
+        .move-controls button:hover { background: var(--brand-orange); color: black; }
 
         /* Botões Form */
         .btn-primario { 
@@ -374,7 +379,7 @@
                         </div>
 
                         <div class="input-group full-width" style="margin-top: 20px;">
-                            <label>Fotos do Veículo (Arraste para ordenar)</label>
+                            <label>Fotos do Veículo (Selecione na ordem correta, ou use as setas nas fotos para arrumar)</label>
                             
                             <label class="upload-area" for="fotos-input-criar" style="display: block;">
                                 <i class="fas fa-cloud-upload-alt"></i>
@@ -508,7 +513,7 @@
                 </div>
 
                 <div class="input-group full-width" style="margin-top: 20px;">
-                    <label>Fotos do Veículo (Arraste para ordenar)</label>
+                    <label>Fotos do Veículo</label>
                     
                     <label class="upload-area" for="fotos-input-editar" style="display: block;">
                         <i class="fas fa-cloud-upload-alt"></i>
@@ -753,8 +758,7 @@
             $('#combustivel').on('change', buscarPrecoFipe); 
 
             $('#edit_marca').on('change', function() {
-                const marcaId = $(this).val();
-                carregarVersoesFIPE(marcaId, '#edit_versao');
+                carregarVersoesFIPE($(this).val(), '#edit_versao');
             });
 
             $('#edit_versao').on('change', function() {
@@ -874,7 +878,7 @@
 
             for (let v of estoqueMock) {
                 if (v.fipeMes !== mesAtual && v.marcaId && v.versaoId && v.ano) {
-                    console.log(`A atualizar Tabela FIPE do veículo: ${v.marca} ${v.versao} (Última vez: ${v.fipeMes || 'Nunca'})`);
+                    console.log(`A atualizar Tabela FIPE do veículo: ${v.marca} ${v.versao}`);
                     
                     const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
                     
@@ -904,9 +908,25 @@
             btn.style.color = 'var(--brand-orange)';
             btn.style.borderColor = 'var(--brand-orange)';
 
-            for(let v of estoqueMock) { v.fipeMes = '00/0000'; } 
+            const mesAtual = obterMesAnoAtual();
             
-            await autoAtualizarFipesEstoque();
+            for(let v of estoqueMock) { 
+                console.log(`Forçando Tabela FIPE do veículo: ${v.marca} ${v.versao}`);
+                const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
+                
+                if (novosDadosFipe && novosDadosFipe.valor) {
+                    try {
+                        await db.collection('veiculos').doc(v.id).update({
+                            fipeValor: novosDadosFipe.valor,
+                            fipeVariacao: novosDadosFipe.variacao,
+                            fipeMes: mesAtual
+                        });
+                    } catch(err) {
+                        console.error(`Erro ao guardar atualização na base de dados para ${v.id}`, err);
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
+            } 
             
             btn.innerHTML = '<i class="fas fa-check"></i> Concluído!';
             btn.style.color = '#25d366';
@@ -916,7 +936,7 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.style.color = 'var(--text-gray)';
-                btn.style.borderColor = 'var(--text-gray)';
+                btn.style.borderColor = 'transparent';
             }, 3000);
         }
 
@@ -957,24 +977,31 @@
         let fotosCriar = []; 
         let fotosEditar = []; 
 
-        function adicionarFotos(event, containerId, context) {
+        async function adicionarFotos(event, containerId, context) {
             const files = event.target.files;
             if (files.length === 0) return;
 
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const fotoObj = { dataUrl: e.target.result };
-                    if (context === 'criar') {
-                        fotosCriar.push(fotoObj);
-                        renderizarPreview(containerId, fotosCriar, context);
-                    } else if (context === 'editar') {
-                        fotosEditar.push(fotoObj);
-                        renderizarPreview(containerId, fotosEditar, context);
+            // USA PROMISE.ALL PARA MANTER A ORDEM EXATA DA SELEÇÃO DO UTILIZADOR
+            const promessasDeArquivos = Array.from(files).map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        resolve({ dataUrl: e.target.result });
                     }
-                }
-                reader.readAsDataURL(file);
+                    reader.readAsDataURL(file);
+                });
             });
+
+            const novasFotos = await Promise.all(promessasDeArquivos);
+
+            if (context === 'criar') {
+                fotosCriar.push(...novasFotos);
+                renderizarPreview(containerId, fotosCriar, context);
+            } else if (context === 'editar') {
+                fotosEditar.push(...novasFotos);
+                renderizarPreview(containerId, fotosEditar, context);
+            }
+            
             event.target.value = ''; 
         }
 
@@ -1002,8 +1029,17 @@
                     removerFoto(index, context, containerId);
                 };
 
+                // BOTÕES DE SETA PARA MOVER FOTOS (SOLUÇÃO PARA TELEMÓVEL)
+                const moveControls = document.createElement('div');
+                moveControls.classList.add('move-controls');
+                moveControls.innerHTML = `
+                    <button type="button" onclick="moverFoto(${index}, -1, '${context}', '${containerId}', event)">◀</button>
+                    <button type="button" onclick="moverFoto(${index}, 1, '${context}', '${containerId}', event)">▶</button>
+                `;
+
                 wrapper.appendChild(img);
                 wrapper.appendChild(btnRemove);
+                wrapper.appendChild(moveControls);
                 container.appendChild(wrapper);
 
                 wrapper.addEventListener('dragstart', dragStart);
@@ -1011,6 +1047,20 @@
                 wrapper.addEventListener('drop', dragDrop);
                 wrapper.addEventListener('dragend', dragEnd);
             });
+        }
+
+        function moverFoto(index, direcao, context, containerId, event) {
+            if (event) event.stopPropagation();
+            
+            const arrayFotos = context === 'criar' ? fotosCriar : fotosEditar;
+            const novoIndex = index + direcao;
+            
+            if (novoIndex < 0 || novoIndex >= arrayFotos.length) return;
+            
+            const item = arrayFotos.splice(index, 1)[0];
+            arrayFotos.splice(novoIndex, 0, item);
+            
+            renderizarPreview(containerId, arrayFotos, context);
         }
 
         function removerFoto(index, context, containerId) {
@@ -1375,15 +1425,15 @@
             }
         }
 
-        function abrirModalEdicao(id) {
+        async function abrirModalEdicao(id) {
             const veiculo = estoqueMock.find(v => v.id === id);
             if (!veiculo) return;
 
             document.getElementById('edit_id').value = veiculo.id;
-            document.getElementById('edit_placa').value = veiculo.placa;
-            document.getElementById('edit_preco').value = veiculo.preco;
-            document.getElementById('edit_km').value = veiculo.km;
-            document.getElementById('edit_descricao').value = veiculo.descricao;
+            document.getElementById('edit_placa').value = veiculo.placa || '';
+            document.getElementById('edit_preco').value = veiculo.preco || '';
+            document.getElementById('edit_km').value = veiculo.km || '';
+            document.getElementById('edit_descricao').value = veiculo.descricao || '';
 
             $('#edit_tipo').val(veiculo.tipo).trigger('change');
             $('#edit_ano').val(veiculo.ano).trigger('change');
@@ -1391,15 +1441,29 @@
             $('#edit_cambio').val(veiculo.cambio).trigger('change');
             $('#edit_combustivel').val(veiculo.combustivel).trigger('change');
 
+            // Pausa os gatilhos visuais para não apagar a versão sem querer
+            $('#edit_marca').off('change');
+
             if ($('#edit_marca').find("option[value='" + veiculo.marcaId + "']").length) {
-                $('#edit_marca').val(veiculo.marcaId).trigger('change');
+                $('#edit_marca').val(veiculo.marcaId).trigger('change.select2');
             } else {
                 let newMarcaOption = new Option(veiculo.marca, veiculo.marcaId, true, true);
-                $('#edit_marca').append(newMarcaOption).trigger('change');
+                $('#edit_marca').append(newMarcaOption).trigger('change.select2');
             }
             
-            let newVersaoOption = new Option(veiculo.versao, veiculo.versaoId, true, true);
-            $('#edit_versao').append(newVersaoOption).trigger('change');
+            // CARREGA AS VERSÕES E ESPERA O SERVIDOR RESPONDER ANTES DE CONTINUAR
+            await carregarVersoesFIPE(veiculo.marcaId, '#edit_versao');
+
+            // AGORA SIM ELE COLOCA A VERSÃO DO CARRO, GARANTINDO QUE NÃO FICA VAZIO
+            if ($('#edit_versao').find("option[value='" + veiculo.versaoId + "']").length) {
+                $('#edit_versao').val(veiculo.versaoId).trigger('change.select2');
+            } else {
+                let newVersaoOption = new Option(veiculo.versao, veiculo.versaoId, true, true);
+                $('#edit_versao').append(newVersaoOption).trigger('change.select2');
+            }
+
+            // Devolve o gatilho para caso o usuário decida trocar a marca manualmente
+            $('#edit_marca').on('change', function() { carregarVersoesFIPE($(this).val(), '#edit_versao'); });
 
             $('#edit_versao_custom').val(veiculo.versao).show();
 
