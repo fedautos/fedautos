@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     
     // Trava de segurança: Se o banco estiver vazio, não envia XML quebrado
     if (snapshot.empty) {
-       const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link></channel></rss>`;
+       const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link><description>Estoque de veículos</description></channel></rss>`;
        res.setHeader('Content-Type', 'application/xml; charset=utf-8');
        return res.status(200).send(emptyXml);
     }
@@ -89,13 +89,14 @@ export default async function handler(req, res) {
     });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-      <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
-        <channel>
-          <title>F&amp;D Autos Catalog</title>
-          <link>https://fedautos.vercel.app</link>
-          ${itemsXml}
-        </channel>
-      </rss>`;
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+  <channel>
+    <title>F&amp;D Autos Catalog</title>
+    <link>https://fedautos.vercel.app</link>
+    <description>Estoque de veículos da F&amp;D Autos</description>
+    ${itemsXml}
+  </channel>
+</rss>`;
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.status(200).send(xml);
