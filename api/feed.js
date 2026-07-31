@@ -19,7 +19,8 @@ export default async function handler(req, res) {
     
     // Trava de segurança: Se o banco estiver vazio, não envia XML quebrado
     if (snapshot.empty) {
-       const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link><description>Estoque de veículos</description></channel></rss>`;
+       // ALTERAÇÃO 1: Adicionado o .trim() no final para limpar espaços
+       const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link><description>Estoque de veículos</description></channel></rss>`.trim();
        res.setHeader('Content-Type', 'application/xml; charset=utf-8');
        return res.status(200).send(emptyXml);
     }
@@ -88,6 +89,7 @@ export default async function handler(req, res) {
       }
     });
 
+    // ALTERAÇÃO 2: Adicionado o .trim() no final da crase
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
   <channel>
@@ -96,11 +98,14 @@ export default async function handler(req, res) {
     <description>Estoque de veículos da F&amp;D Autos</description>
     ${itemsXml}
   </channel>
-</rss>`;
+</rss>`.trim();
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.status(200).send(xml);
   } catch (error) {
-    res.status(500).send("Erro: " + error.message);
+    // ALTERAÇÃO 3: Retorna XML válido mesmo se o Firebase falhar, impedindo a Meta de bloquear o feed
+    const errorXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link><description>Estoque temporariamente indisponível</description></channel></rss>`.trim();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(errorXml);
   }
 }
