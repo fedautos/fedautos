@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
       // O doc.id é usado como <g:id> fixo para o Facebook não reanalisar os mesmos carros
 
-        if (car) {
+        if (car.status === 'publicado' && car.emCatalogo !== false) {
 
         
 
