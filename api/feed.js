@@ -49,8 +49,11 @@ export default async function handler(req, res) {
         const csvMarca = `"${marca}"`;
         const csvVersao = `"${versao}"`;
 
-        // CORREÇÃO FINAL: USED e IN_STOCK em maiúsculas
-        csv += `${id},${csvTitle},${csvDesc},${url},${image},${csvMarca},${csvVersao},${ano},${km},KM,${price},EXCELLENT,USED,IN_STOCK,OTHER,Rua da Regeneracao 86,Recife,PE,BR,52120-000\n`;
+        // ORDEM CORRETA:
+        // state_of_vehicle = USED
+        // condition = EXCELLENT
+        // availability = IN_STOCK
+        csv += `${id},${csvTitle},${csvDesc},${url},${image},${csvMarca},${csvVersao},${ano},${km},KM,${price},USED,EXCELLENT,IN_STOCK,OTHER,Rua da Regeneracao 86,Recife,PE,BR,52120-000\n`;
       }
     });
 
