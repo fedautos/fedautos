@@ -1,7 +1,6 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Puxa a chave salva na Vercel
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 if (!getApps().length) {
@@ -12,55 +11,88 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
+// Funções auxiliares de sanitização
+const cleanDigits = (val) => (val ? String(val).replace(/\D/g, '') : '0');
+const sanitizeText = (str) => (str ? String(str).replace(/[\r\n]+/g, ' ').trim() : '');
+
 export default async function handler(req, res) {
   try {
     const snapshot = await db.collection('veiculos').get();
 
-    // Cabeçalhos atualizados EXATAMENTE com os nomes que o relatório do Facebook pediu
-    let csv = 'vehicle_id,title,description,url,image,make,model,year,mileage.value,mileage.unit,price,state_of_vehicle,condition,availability,body_style,address.addr1,address.city,address.region,address.country,address.postal_code\n';
-
     if (snapshot.empty) {
-       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-       return res.status(200).send(csv);
+      const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>F&amp;D Autos Catalog</title><link>https://fedautos.vercel.app</link></channel></rss>`;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      return res.status(200).send(emptyXml);
     }
 
-    snapshot.forEach(doc => {
+    let itemsXml = '';
+
+    snapshot.forEach((doc) => {
       const car = doc.data();
-      
+
       if (car.status === 'publicado' && car.emCatalogo !== false) {
         const id = doc.id;
-        
-        let marcaLimpa = car.marca || '';
-        if (marcaLimpa.toUpperCase() === 'VW') marcaLimpa = 'Volkswagen';
-        
-        const versao = car.versao || '';
+        const fotos = car.fotos || [];
+
+        let marca = sanitizeText(car.marca);
+        if (marca.toUpperCase() === 'VW') marca = 'Volkswagen';
+
+        const versao = sanitizeText(car.versao);
         const ano = car.ano ? String(car.ano).split('/').pop() : '';
-        const title = `${marcaLimpa} ${versao} ${ano}`.trim();
-        
-        // Limpeza de texto para não quebrar o CSV
-        const rawDesc = car.descricao || 'Veículo em excelente estado.';
-        const description = rawDesc.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""');
-        
-        const url = `https://fedautos.vercel.app/carro/${id}`;
-        
-        // 1. Correção: A coluna agora chama apenas "image"
-        const image = (car.fotos && car.fotos.length > 0) ? car.fotos[0] : '';
-        
-        const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
-        const km = car.km ? String(car.km).replace(/\D/g, '') : '0';
+        const titulo = `${marca} ${versao} ${ano}`.trim();
+        const descricao = sanitizeText(car.descricao) || 'Veículo em excelente estado.';
 
-        const csvTitle = `"${title}"`;
-        const csvDesc = `"${description}"`;
-        const csvMarca = `"${marcaLimpa}"`;
-        const csvVersao = `"${versao}"`;
+        const preco = cleanDigits(car.preco);
+        const km = cleanDigits(car.km);
 
-        // Monta a linha com as correções de Maiúsculas, Endereço e Body_Style (OTHER)
-        csv += `${id},${csvTitle},${csvDesc},${url},${image},${csvMarca},${csvVersao},${ano},${km},KM,${price},EXCELLENT,used,in stock,OTHER,Rua da Regeneracao 86,Recife,PE,BR,52120-000\n`;
+        const fotoPrincipal = fotos.length > 0 ? fotos[0] : '';
+        const fotosAdicionaisXml = fotos.length > 1
+          ? fotos.slice(1).map((url) => `<g:additional_image_link><![CDATA[${url}]]></g:additional_image_link>`).join('')
+          : '';
+
+        itemsXml += `
+          <item>
+            <g:id>${id}</g:id>
+            <g:title><![CDATA[${titulo}]]></g:title>
+            <g:description><![CDATA[${descricao}]]></g:description>
+            <g:link>https://fedautos.vercel.app/carro/${id}</g:link>
+            <g:image_link><![CDATA[${fotoPrincipal}]]></g:image_link>
+            ${fotosAdicionaisXml}
+            <g:brand><![CDATA[${marca}]]></g:brand>
+            <g:make><![CDATA[${marca}]]></g:make>
+            <g:model><![CDATA[${versao}]]></g:model>
+            <g:year>${ano}</g:year>
+            <g:price>${preco}.00 BRL</g:price>
+            <g:condition>used</g:condition>
+            <g:state_of_vehicle>EXCELLENT</g:state_of_vehicle>
+            <g:availability>in stock</g:availability>
+            <g:body_style>OTHER</g:body_style>
+            <g:mileage>
+              <g:value>${km}</g:value>
+              <g:unit>KM</g:unit>
+            </g:mileage>
+            <g:address>
+              <g:street_address>Rua da Regeneracao 86</g:street_address>
+              <g:city>Recife</g:city>
+              <g:region>PE</g:region>
+              <g:postal_code>52120-000</g:postal_code>
+              <g:country>BR</g:country>
+            </g:address>
+          </item>`;
       }
     });
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.status(200).send(csv);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+  <channel>
+    <title>F&amp;D Autos Catalog</title>
+    <link>https://fedautos.vercel.app</link>
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(xml);
   } catch (error) {
     res.status(500).send("Erro: " + error.message);
   }
