@@ -1,65 +1,86 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-}
-
-const db = getFirestore();
-
-export default async function handler(req, res) {
+export async function GET() {
   try {
-    const snapshot = await db.collection('veiculos').get();
+    const querySnapshot = await getDocs(collection(db, "veiculos"));
+    const cars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    let csv = 'vehicle_id,title,description,url,image,make,model,year,mileage.value,mileage.unit,price,state_of_vehicle,condition,availability,body_style,address.addr1,address.city,address.region,address.country,address.postal_code\n';
+    // Cabeçalho padronizado do Meta Automotive Inventory Ads
+    const headers = [
+      "vehicle_id",
+      "title",
+      "description",
+      "url",
+      "image[0].url",
+      "make",
+      "model",
+      "year",
+      "mileage.value",
+      "mileage.unit",
+      "price",
+      "state_of_vehicle",
+      "condition",
+      "availability",
+      "body_style",
+      "exterior_color",
+      "address"
+    ];
 
-    if (snapshot.empty) {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      return res.status(200).send(csv);
-    }
+    const rows = cars.map(car => {
+      // 1. Imagem principal
+      const imageUrl = car.foto_capa || car.imagem || (Array.isArray(car.fotos) ? car.fotos[0] : '') || '';
+      
+      // 2. Preço formatado com a moeda (ex: 65000.00 BRL)
+      const rawPrice = parseFloat(car.preco || car.price || 0);
+      const formattedPrice = `${rawPrice.toFixed(2)} BRL`;
 
-    snapshot.forEach((doc) => {
-      const car = doc.data();
+      // 3. Quilometragem
+      const kmValue = parseInt(car.km || car.mileage || 0, 10);
 
-      if (car.status === 'publicado' && car.emCatalogo !== false) {
-        const id = doc.id;
+      // 4. Estado do veículo (USED para usado, NEW para 0km)
+      const state = (kmValue === 0 || car.estado === 'zero' || car.zero) ? 'NEW' : 'USED';
 
-        let marca = car.marca ? String(car.marca).trim() : '';
-        if (marca.toUpperCase() === 'VW') marca = 'Volkswagen';
+      // 5. Título e Descrição protegidos contra aspas
+      const rawTitle = `${car.marca || ''} ${car.modelo || ''} ${car.versao || ''} ${car.ano || ''}`.trim() || 'Veículo';
+      const cleanTitle = `"${rawTitle.replace(/"/g, '""')}"`;
+      const cleanDesc = `"${(car.descricao || rawTitle).replace(/"/g, '""')}"`;
 
-        const versao = car.versao ? String(car.versao).trim() : '';
-        const ano = car.ano ? String(car.ano).split('/').pop() : '';
-        const title = `${marca} ${versao} ${ano}`.trim();
+      // 6. URL do veículo no seu site
+      const carUrl = `https://fd-autos-site.vercel.app/carro/${car.id}`;
 
-        const rawDesc = car.descricao || 'Veículo em excelente estado.';
-        const description = rawDesc.replace(/[\r\n]+/g, ' ').replace(/"/g, '""');
-
-        const url = `https://fedautos.vercel.app/carro/${id}`;
-        const image = (car.fotos && car.fotos.length > 0) ? car.fotos[0] : '';
-
-        const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
-        const km = car.km ? String(car.km).replace(/\D/g, '') : '0';
-
-        const csvTitle = `"${title}"`;
-        const csvDesc = `"${description}"`;
-        const csvMarca = `"${marca}"`;
-        const csvVersao = `"${versao}"`;
-
-        // ORDEM CORRETA:
-        // state_of_vehicle = USED
-        // condition = EXCELLENT
-        // availability = IN_STOCK
-        csv += `${id},${csvTitle},${csvDesc},${url},${image},${csvMarca},${csvVersao},${ano},${km},KM,${price},USED,EXCELLENT,IN_STOCK,OTHER,Rua da Regeneracao 86,Recife,PE,BR,52120-000\n`;
-      }
+      return [
+        car.id,                                         // vehicle_id
+        cleanTitle,                                     // title
+        cleanDesc,                                      // description
+        carUrl,                                         // url
+        imageUrl,                                       // image[0].url
+        car.marca || 'Outra',                           // make
+        car.modelo || 'Não informado',                 // model
+        car.ano || 2020,                                // year
+        kmValue,                                        // mileage.value
+        'KM',                                           // mileage.unit
+        formattedPrice,                                 // price
+        state,                                          // state_of_vehicle
+        'EXCELLENT',                                    // condition
+        'AVAILABLE',                                    // availability
+        car.carroceria || 'OTHER',                      // body_style
+        car.cor || 'Outra',                             // exterior_color
+        '"Rua da Regeneração 86, Recife, PE, Brasil"'   // address
+      ].join(',');
     });
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.status(200).send(csv);
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    return new Response(csvContent, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'inline; filename="catalog.csv"',
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    });
   } catch (error) {
-    res.status(500).send("Erro: " + error.message);
+    return new Response(`Erro ao gerar catálogo: ${error.message}`, { status: 500 });
   }
 }
