@@ -47,7 +47,10 @@ export default async function handler(req, res) {
         // Trata o array de fotos
         const fotos = Array.isArray(car.fotos) ? car.fotos : [];
         const mainImage = fotos.length > 0 ? fotos[0] : '';
-        const extraImages = fotos.slice(1, 11); // Pega até mais 10 fotos adicionais
+        
+        // LIMITADOR ATUALIZADO: Pega da 2ª foto (índice 1) até a 20ª foto (índice 20)
+        // Somando com a mainImage, o catálogo receberá um total de até 20 fotos.
+        const extraImages = fotos.slice(1, 20); 
 
         const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
 
