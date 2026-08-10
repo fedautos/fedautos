@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const snapshot = await db.collection('veiculos').get();
 
-    // Cabeçalho do XML (Padrão RSS 2.0 exigido pela Meta e Google)
+    // Cabeçalho do XML (Padrão RSS 2.0 exigido pela Meta)
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n`;
     xml += `  <channel>\n`;
@@ -32,11 +32,9 @@ export default async function handler(req, res) {
     snapshot.forEach((doc) => {
       const car = doc.data();
 
-      // Mantendo a sua regra de publicação
       if (car.status === 'publicado' && car.emCatalogo !== false) {
         const id = doc.id;
 
-        // Tratamento da marca e título
         let marca = car.marca ? String(car.marca).trim() : '';
         if (marca.toUpperCase() === 'VW') marca = 'Volkswagen';
 
@@ -44,16 +42,16 @@ export default async function handler(req, res) {
         const ano = car.ano ? String(car.ano).split('/').pop() : '';
         const title = `${marca} ${versao} ${ano}`.trim();
 
-        // A descrição não precisa daquele .replace do CSV, pois o CDATA já protege o texto no XML
+        // O CDATA protege o texto, então não precisamos limpar aspas ou quebras de linha
         const rawDesc = car.descricao || 'Veículo em excelente estado.';
 
         const url = `https://fedautos.vercel.app/carro/${id}`;
         const image = (car.fotos && car.fotos.length > 0) ? car.fotos[0] : '';
 
-        // Preço com o ' BRL' no final
+        // Preço formatado (apenas números seguidos de BRL)
         const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
 
-        // Montando cada "linha" (item) do XML
+        // Estrutura de cada item no XML
         xml += `    <item>\n`;
         xml += `      <g:id>${id}</g:id>\n`;
         xml += `      <g:title><![CDATA[${title}]]></g:title>\n`;
@@ -71,7 +69,7 @@ export default async function handler(req, res) {
     xml += `  </channel>\n`;
     xml += `</rss>`;
 
-    // Avisa o navegador e a Meta que este arquivo é um XML
+    // Define o cabeçalho para que o navegador e a Meta leiam como XML
     res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     res.status(200).send(xml);
   } catch (error) {
