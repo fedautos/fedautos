@@ -13,7 +13,9 @@ const db = getFirestore();
 
 export default async function handler(req, res) {
   try {
-    const snapshot = await db.collection('veiculos').get();
+    // CORREÇÃO CRUCIAL: .orderBy('__name__') garante que o XML sempre 
+    // será gerado na MESMA ordem, evitando que a Meta re-analise tudo.
+    const snapshot = await db.collection('veiculos').orderBy('__name__').get();
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n`;
@@ -44,12 +46,8 @@ export default async function handler(req, res) {
         const rawDesc = car.descricao || 'Veículo em excelente estado.';
         const url = `https://fedautos.vercel.app/carro/${id}`;
 
-        // Trata o array de fotos
         const fotos = Array.isArray(car.fotos) ? car.fotos : [];
         const mainImage = fotos.length > 0 ? fotos[0] : '';
-        
-        // LIMITADOR ATUALIZADO: Pega da 2ª foto (índice 1) até a 20ª foto (índice 20)
-        // Somando com a mainImage, o catálogo receberá um total de até 20 fotos.
         const extraImages = fotos.slice(1, 20); 
 
         const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
@@ -60,12 +58,10 @@ export default async function handler(req, res) {
         xml += `      <g:description><![CDATA[${rawDesc}]]></g:description>\n`;
         xml += `      <g:link>${url}</g:link>\n`;
         
-        // Foto principal
         if (mainImage) {
           xml += `      <g:image_link>${mainImage}</g:image_link>\n`;
         }
 
-        // Fotos adicionais (carrossel)
         extraImages.forEach((imgUrl) => {
           if (imgUrl) {
             xml += `      <g:additional_image_link>${imgUrl}</g:additional_image_link>\n`;
