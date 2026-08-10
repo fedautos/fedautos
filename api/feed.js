@@ -15,44 +15,28 @@ export default async function handler(req, res) {
   try {
     const snapshot = await db.collection('veiculos').get();
 
-    // Estrutura oficial de colunas para o catálogo de automóveis da Meta
-    const headers = [
-      'vehicle_id',
-      'title',
-      'description',
-      'url',
-      'image[0].url',
-      'make',
-      'model',
-      'year',
-      'mileage.value',
-      'mileage.unit',
-      'price',
-      'state_of_vehicle',
-      'condition',
-      'availability',
-      'body_style',
-      'exterior_color',
-      'address.addr1',
-      'address.city',
-      'address.region',
-      'address.country',
-      'address.postal_code'
-    ].join(',');
-
-    let csv = headers + '\n';
+    // Cabeçalho do XML (Padrão RSS 2.0 exigido pela Meta e Google)
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n`;
+    xml += `  <channel>\n`;
+    xml += `    <title>F&amp;D Autos - Catálogo</title>\n`;
+    xml += `    <link>https://fedautos.vercel.app</link>\n`;
+    xml += `    <description>Catálogo de estoque para o WhatsApp</description>\n`;
 
     if (snapshot.empty) {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      return res.status(200).send(csv);
+      xml += `  </channel>\n</rss>`;
+      res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+      return res.status(200).send(xml);
     }
 
     snapshot.forEach((doc) => {
       const car = doc.data();
 
+      // Mantendo a sua regra de publicação
       if (car.status === 'publicado' && car.emCatalogo !== false) {
         const id = doc.id;
 
+        // Tratamento da marca e título
         let marca = car.marca ? String(car.marca).trim() : '';
         if (marca.toUpperCase() === 'VW') marca = 'Volkswagen';
 
@@ -60,30 +44,38 @@ export default async function handler(req, res) {
         const ano = car.ano ? String(car.ano).split('/').pop() : '';
         const title = `${marca} ${versao} ${ano}`.trim();
 
+        // A descrição não precisa daquele .replace do CSV, pois o CDATA já protege o texto no XML
         const rawDesc = car.descricao || 'Veículo em excelente estado.';
-        const description = rawDesc.replace(/[\r\n]+/g, ' ').replace(/"/g, '""');
 
         const url = `https://fedautos.vercel.app/carro/${id}`;
         const image = (car.fotos && car.fotos.length > 0) ? car.fotos[0] : '';
 
+        // Preço com o ' BRL' no final
         const price = car.preco ? String(car.preco).replace(/\D/g, '') + ' BRL' : '0 BRL';
-        const km = car.km ? String(car.km).replace(/\D/g, '') : '0';
-        const cor = car.cor ? String(car.cor).trim() : 'Outra';
 
-        const csvTitle = `"${title}"`;
-        const csvDesc = `"${description}"`;
-        const csvMarca = `"${marca}"`;
-        const csvVersao = `"${versao}"`;
-        const csvCor = `"${cor}"`;
-
-        csv += `${id},${csvTitle},${csvDesc},${url},${image},${csvMarca},${csvVersao},${ano},${km},KM,${price},USED,EXCELLENT,AVAILABLE,OTHER,${csvCor},Rua da Regeneracao 86,Recife,PE,BR,52120-000\n`;
+        // Montando cada "linha" (item) do XML
+        xml += `    <item>\n`;
+        xml += `      <g:id>${id}</g:id>\n`;
+        xml += `      <g:title><![CDATA[${title}]]></g:title>\n`;
+        xml += `      <g:description><![CDATA[${rawDesc}]]></g:description>\n`;
+        xml += `      <g:link>${url}</g:link>\n`;
+        xml += `      <g:image_link>${image}</g:image_link>\n`;
+        xml += `      <g:brand><![CDATA[${marca}]]></g:brand>\n`;
+        xml += `      <g:price>${price}</g:price>\n`;
+        xml += `      <g:condition>used</g:condition>\n`;
+        xml += `      <g:availability>in stock</g:availability>\n`;
+        xml += `    </item>\n`;
       }
     });
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.status(200).send(csv);
+    xml += `  </channel>\n`;
+    xml += `</rss>`;
+
+    // Avisa o navegador e a Meta que este arquivo é um XML
+    res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+    res.status(200).send(xml);
   } catch (error) {
-    console.error('Erro ao gerar catálogo:', error);
+    console.error('Erro ao gerar catálogo XML:', error);
     res.status(500).send("Erro interno: " + error.message);
   }
 }
