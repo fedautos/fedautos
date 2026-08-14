@@ -858,29 +858,29 @@
                     try {
                         const resTabelas = await fetch('https://brasilapi.com.br/api/fipe/tabelas/v1');
                         const tabelas = await resTabelas.json();
+                        // Garante que só compara de forma assertiva com o ÚLTIMO mês válido
                         if (tabelas && tabelas.length >= 2) {
                             const fipeCode = dadosFipe.CodigoFipe;
-                            const valAtualNum = parseFloat(resultado.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
+                            const limpaMoeda = (str) => parseFloat(str.replace(/[R$\s.]/g, '').replace(',', '.'));
+                            const valAtualNum = limpaMoeda(resultado.valor);
                             const anoBusca = parseInt(anoEncontrado.codigo.split('-')[0]); 
 
-                            for (let i = 1; i < Math.min(tabelas.length, 6); i++) {
-                                const tabelaAnterior = tabelas[i].codigo; 
-                                const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
+                            const tabelaAnterior = tabelas[1].codigo; 
+                            const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
+                            
+                            if(resPrecoAnt.ok) {
                                 const listaAnterior = await resPrecoAnt.json();
-                                
                                 const precoAnteriorObj = listaAnterior.find(p => p.anoModelo === anoBusca || (anoBusca === 32000 && p.anoModelo === 32000));
                                 
                                 if (precoAnteriorObj && precoAnteriorObj.valor) {
-                                    const valAntNum = parseFloat(precoAnteriorObj.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
-                                    
-                                    if (valAntNum > 0 && Math.abs(valAtualNum - valAntNum) > 0.01) {
+                                    const valAntNum = limpaMoeda(precoAnteriorObj.valor);
+                                    if (valAntNum > 0) {
                                         resultado.variacao = ((valAtualNum - valAntNum) / valAntNum) * 100;
-                                        break; 
                                     }
                                 }
                             }
                         }
-                    } catch (err) {}
+                    } catch (err) { console.error("Erro na verificação de variação FIPE:", err); }
                     return resultado;
                 }
             } catch(e) {}
@@ -908,11 +908,18 @@
 
                 const variacaoFloat = parseFloat(variacaoFipeAtual);
                 const isZero = Math.abs(variacaoFloat) < 0.01;
-                let icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
+                // Classes de ícone FontAwesome 6 corrigidas
+                let icone = variacaoFloat > 0 && !isZero ? 'arrow-up' : (variacaoFloat < 0 && !isZero ? 'arrow-down' : 'minus');
                 let corBG = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                 let corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
                 
-                $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`).css({'background': corBG, 'color': corTexto, 'display': 'inline-block'});
+                $('#fipe-variacao-criar')
+                    .html(`<i class="fas fa-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`)
+                    .css({
+                        'background': corBG, 'color': corTexto, 
+                        'display': 'inline-flex', 'align-items': 'center', 'gap': '4px',
+                        'padding': '2px 6px', 'border-radius': '4px', 'font-weight': 'bold'
+                    });
             } else {
                 $('#fipe-valor-criar').text('FIPE indisponível p/ este modelo/ano');
                 valorFipeAtual = ""; variacaoFipeAtual = 0;
@@ -1210,12 +1217,14 @@
             try {
                 const fotoUrls = [];
                 for (let i = 0; i < fotosCriar.length; i++) {
-                    const fileData = fotosCriar[i].dataUrl;
-                    // Se a imagem veio do telemóvel, ela já é um link HTTPS do ImgBB.
-                    // Não podemos tentar fazer upload de um link novamente. Salva-se direto!
+                    let fileData = fotosCriar[i].dataUrl;
                     if (fileData.startsWith('http')) {
                         fotoUrls.push(fileData);
                     } else {
+                        // FIX DE UPLOAD LENTO: Redimensiona no navegador ANTES de enviar para a API de imagens
+                        if (fileData.startsWith('data:image')) {
+                            fileData = await redimensionarBase64(fileData, 1200); 
+                        }
                         const url = await uploadParaImgBB(fileData);
                         if(url) fotoUrls.push(url);
                     }
@@ -1346,10 +1355,10 @@
                     let badgeVariacao = '';
                     if (v.fipeVariacao !== undefined && v.fipeVariacao !== null) {
                         const variacaoFloat = parseFloat(v.fipeVariacao); const isZero = Math.abs(variacaoFloat) < 0.01;
-                        const icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
+                        const icone = variacaoFloat > 0 && !isZero ? 'arrow-up' : (variacaoFloat < 0 && !isZero ? 'arrow-down' : 'minus');
                         const corBg = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                         const corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
-                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;" title="Competência: ${v.fipeMes || 'Desconhecida'}"><i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
+                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; display:inline-flex; align-items:center; gap:3px;" title="Competência: ${v.fipeMes || 'Desconhecida'}"><i class="fas fa-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
                     }
                     blocoFipe = `<div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span title="FIPE verificada em: ${v.fipeMes || 'Antiga'}">FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>${badgeVariacao}</div>`;
                 }
@@ -1447,9 +1456,16 @@
                 try {
                     const fotoUrls = [];
                     for (let i = 0; i < fotosEditar.length; i++) {
-                        const fileData = fotosEditar[i].dataUrl;
+                        let fileData = fotosEditar[i].dataUrl;
                         if (fileData.startsWith('http')) fotoUrls.push(fileData);
-                        else { const url = await uploadParaImgBB(fileData); if(url) fotoUrls.push(url); }
+                        else { 
+                            // FIX DE UPLOAD LENTO NO EDITAR TAMBÉM
+                            if (fileData.startsWith('data:image')) {
+                                fileData = await redimensionarBase64(fileData, 1200);
+                            }
+                            const url = await uploadParaImgBB(fileData); 
+                            if(url) fotoUrls.push(url); 
+                        }
                     }
 
                     const editVersaoCustom = document.getElementById('edit_versao_custom');
@@ -1530,7 +1546,8 @@
    - Defina exatamente a direção (ou é "Direção Hidráulica" ou "Direção Elétrica"). Nunca coloque as duas.
    - Defina o som de forma profissional (ou "Rádio MP3", ou "Central Multimídia", ou "Sistema de Som original"). PROIBIDO usar a palavra "som ambiente".
 5. ❌ PROIBIDO: Não invente opcionais que você não está a ver nas fotos.
-6. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto:
+6. 📊 INFORMAÇÕES TÉCNICAS REAIS: Utilize o seu forte conhecimento interno como I.A para buscar a ficha técnica real deste modelo exato (${marca} ${versao} ${ano}). Adicione um pequeno bloco centralizado chamado "⚙️ Ficha Técnica Resumida" informando os valores técnicos reais da categoria: Potência do motor, Consumo médio e Capacidade do porta-malas.
+7. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto:
 
 ${templateDesejado}`;
 
