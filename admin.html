@@ -1584,6 +1584,38 @@ ${templateDesejado}`;
                 document.getElementById(`${prefixo}descricao`).value = `🚗 ${marca} ${versao} impecável na cor ${cor}!\n\n🚘 Veículo em perfeito estado de conservação, pronto para o seu dia a dia.\n\n✨ Confira os destaques:\n✅ Ar-condicionado\n✅ Vidros e travas elétricas\n✅ Ótimo estado de conservação\n\n${templateDesejado}`;
             } finally { botaoHtml.innerHTML = textoOriginalBtn; botaoHtml.disabled = false; }
         }
+    <!-- Se você ainda não tem o botão no HTML, adicione-o onde desejar no painel -->
+    <button id="btnMobiauto" class="seu-estilo-de-botao">Enviar para Mobiauto</button>
+    
+    <!-- O Script que conecta o botão ao seu novo módulo -->
+    <script type="module">
+      // Importa a funcionalidade do arquivo que você acabou de criar
+      import { integrarMobiauto } from './mobiauto.js';
+    
+      // Espera a tela terminar de carregar
+      document.addEventListener('DOMContentLoaded', () => {
+        const botaoMobiauto = document.getElementById('btnMobiauto');
+        
+        if (botaoMobiauto) {
+          botaoMobiauto.addEventListener('click', async (event) => {
+            event.preventDefault(); // Evita que a página recarregue
+            
+            // Substitua isso pela lógica que puxa os dados do carro no seu painel
+            const dadosVeiculo = { id: "123", status: "ativo" }; 
+            
+            // Efeito visual enquanto processa
+            botaoMobiauto.innerText = "Processando...";
+            botaoMobiauto.disabled = true;
+            
+            // Chama a função isolada no outro arquivo
+            await integrarMobiauto(dadosVeiculo);
+            
+            // Volta o botão ao normal
+            botaoMobiauto.innerText = "Enviar para Mobiauto";
+            botaoMobiauto.disabled = false;
+          });
+        }
+      });
     </script>
 </body>
 </html>
