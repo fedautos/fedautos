@@ -453,11 +453,6 @@
                             <i class="fas fa-sync-alt"></i> Atualizar FIPEs
                         </button>
 
-                        <!-- BOTÃO GLOBAL DE EXPORTAÇÃO MOBIAUTO -->
-                        <button onclick="baixarCSVMobiauto()" style="background: transparent; border: 1px solid #4da6ff; color: #4da6ff; padding: 0 15px; height: 40px; border-radius: 6px; cursor: pointer; transition: 0.3s; font-weight: bold; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.background='#4da6ff'; this.style.color='#000'" onmouseout="this.style.background='transparent'; this.style.color='#4da6ff'">
-                            <i class="fas fa-file-csv"></i> Exportar Mobiauto (Tudo)
-                        </button>
-
                         <div class="input-group" style="flex-direction: row; align-items: center; background: var(--dark-bg); border: 1px solid #2d333b; border-radius: 6px; padding: 0 10px; height: 40px;">
                             <i class="fas fa-search" style="color: var(--text-gray);"></i>
                             <input type="text" id="buscaNome" placeholder="Buscar veículo ou placa..." style="border: none; box-shadow: none; width: 220px; height: 100%; padding: 0 10px;" onkeyup="renderizarEstoque()">
@@ -1074,85 +1069,6 @@
         }
         function dragEnd(e) { this.classList.remove('dragging'); }
 
-        // ================= EXPORTAÇÃO CSV MOBIAUTO =================
-        function baixarCSVMobiauto(veiculoId = null) {
-            let veiculosExportar = [];
-
-            if (veiculoId) {
-                // Exporta apenas o veículo selecionado
-                const veiculo = estoqueMock.find(v => v.id === veiculoId);
-                if (veiculo) veiculosExportar.push(veiculo);
-            } else {
-                // Exporta todo o estoque que está "publicado"
-                veiculosExportar = estoqueMock.filter(v => v.status === 'publicado');
-            }
-
-            if (veiculosExportar.length === 0) {
-                alert("Não há veículos publicados para exportar.");
-                return;
-            }
-
-            // Cabeçalho padrão (Ajuste se a Mobiauto exigir colunas extras)
-            const cabecalho = ["Placa", "Marca", "Versao", "AnoFabricacao", "AnoModelo", "Preco", "Quilometragem", "Cor", "Cambio", "Combustivel", "Descricao", "Fotos"];
-            let csvContent = cabecalho.join(";") + "\n"; 
-
-            veiculosExportar.forEach(v => {
-                // Tratamento do campo Ano (Ex: 2020/2021 -> Fab: 2020, Mod: 2021)
-                let anoFab = "";
-                let anoMod = "";
-                if (v.ano) {
-                    const anos = v.ano.split('/');
-                    anoFab = anos[0] || "";
-                    anoMod = anos[1] || anoFab;
-                }
-
-                // Limpeza de caracteres especiais e formatação
-                const placa = v.placa ? v.placa.replace(/-/g, '') : "";
-                const preco = v.preco ? v.preco.replace(/\./g, '') : "0"; // Remove os pontos de milhar
-                const km = v.km ? v.km.replace(/\./g, '') : "0";
-                
-                // Tratamento da descrição (remove quebras de linha que estragam o CSV e escapa aspas)
-                let descricao = v.descricao ? v.descricao.replace(/[\r\n]+/g, ' ') : "";
-                descricao = `"${descricao.replace(/"/g, '""')}"`;
-
-                // Junta as URLs das fotos com o delimitador "Pipe" (|) padrão em integrações
-                const fotos = v.fotos && v.fotos.length > 0 ? v.fotos.join('|') : "";
-
-                const linha = [
-                    placa,
-                    v.marca || "",
-                    v.versao || "",
-                    anoFab,
-                    anoMod,
-                    preco,
-                    km,
-                    v.cor || "",
-                    v.cambio || "",
-                    v.combustivel || "",
-                    descricao,
-                    `"${fotos}"`
-                ];
-
-                csvContent += linha.join(";") + "\n";
-            });
-
-            // Criação do arquivo Blob UTF-8 (com BOM para abrir corretamente no Excel com acentos)
-            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            
-            const nomeArquivo = veiculoId 
-                ? `mobiauto_${veiculosExportar[0].placa || veiculosExportar[0].id}.csv` 
-                : `mobiauto_estoque_completo.csv`;
-                
-            link.setAttribute("href", url);
-            link.setAttribute("download", nomeArquivo);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-        // ==========================================================
-
         // ================= SINCRONIZAÇÃO PC -> CELULAR =================
         let unsubscribeSync = null;
 
@@ -1475,12 +1391,6 @@
                         <div class="admin-actions">
                             <button class="btn-action ${btnPubClass}" onclick="alternarStatus('${v.id}')">${btnPubText}</button>
                             <button class="btn-action btn-editar" onclick="abrirModalEdicao('${v.id}')"><i class="fas fa-edit"></i> Editar</button>
-
-                            <!-- BOTÃO INDIVIDUAL MOBIAUTO -->
-                            <button class="btn-action" style="color: #4da6ff; border-color: #4da6ff;" onclick="baixarCSVMobiauto('${v.id}')" onmouseover="this.style.background='#4da6ff'; this.style.color='#000'" onmouseout="this.style.background='transparent'; this.style.color='#4da6ff'">
-                                <i class="fas fa-download"></i> Mobiauto
-                            </button>
-
                             <button class="btn-action btn-excluir" onclick="excluirVeiculo('${v.id}')"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
@@ -1566,7 +1476,7 @@
                         marcaId: $('#edit_marca').val(), marca: formatarMarca($('#edit_marca option:selected').text() || $('#edit_marca').val()),
                         versaoId: $('#edit_versao').val(), versao: versaoTextDef,
                         tipo: $('#edit_tipo').val(), preco: document.getElementById('edit_preco').value,
-                        ano: $('#edit_ano').val(), km: $('#edit_km').value,
+                        ano: $('#edit_ano').val(), km: document.getElementById('edit_km').value,
                         cor: $('#edit_cor').val(), cambio: $('#edit_cambio').val(),
                         combustivel: $('#edit_combustivel').val(), descricao: document.getElementById('edit_descricao').value,
                         fotos: fotoUrls
