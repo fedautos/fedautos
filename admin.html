@@ -144,11 +144,23 @@
 
         /* Lista de Estoque Admin */
         .estoque-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .admin-card { background: var(--card-bg); border-radius: 8px; border: 1px solid #2d333b; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        .admin-card { background: var(--card-bg); border-radius: 8px; border: 1px solid #2d333b; overflow: hidden; display: flex; flex-direction: column; position: relative; content-visibility: auto; contain-intrinsic-size: 380px; }
         
-        /* Badges da Imagem */
-        .img-container { position: relative; width: 100%; height: 180px; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; border-bottom: 1px solid #2d333b; cursor: pointer; transition: opacity 0.3s; }
+        /* Badges da Imagem e Skeleton de Carregamento Fluido */
+        .img-container { 
+            position: relative; width: 100%; height: 180px; 
+            background: linear-gradient(110deg, #161b22 8%, #222933 18%, #161b22 33%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s linear infinite;
+        }
+        @keyframes shimmer {
+            to { background-position-x: -200%; }
+        }
+        .img-container img { 
+            width: 100%; height: 100%; object-fit: cover; border-bottom: 1px solid #2d333b; 
+            cursor: pointer; opacity: 0; transition: opacity 0.3s ease-in-out; 
+        }
+        .img-container img.loaded { opacity: 1; }
         .img-container img:hover { opacity: 0.9; }
         
         .status-badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid currentColor; z-index: 5; pointer-events: none;}
@@ -248,6 +260,7 @@
 </head>
 <body>
 
+    <!-- TELA DE LOGIN -->
     <div id="login-screen">
         <div class="login-box">
             <img src="logo.png" alt="F&D AUTOS" class="login-logo" onerror="this.style.display='none'">
@@ -275,6 +288,7 @@
         </div>
     </div>
 
+    <!-- TELA ESPECIAL PARA QUEM ABRE O LINK DE UPLOAD NO CELULAR -->
     <div id="mobile-upload-screen">
         <img src="logo.png" alt="F&D AUTOS" style="height: 60px; margin-bottom: 20px;" onerror="this.style.display='none'">
         <h2 style="color: white; margin-bottom: 10px;"><i class="fas fa-sync-alt" style="color: var(--brand-orange);"></i> Sincronização de Fotos</h2>
@@ -293,6 +307,7 @@
         </button>
     </div>
 
+    <!-- PAINEL ADMINISTRATIVO (COMPUTADOR/TABLET) -->
     <div id="admin-content">
         <header>
             <div class="logo-container" style="display: flex; align-items: center;">
@@ -481,6 +496,7 @@
         </main>
     </div>
 
+    <!-- MODAL DE EDIÇÃO -->
     <div id="modalEdicao" class="modal-overlay">
         <div class="modal-content">
             <button class="btn-fechar-modal" onclick="fecharModalEdicao()"><i class="fas fa-times"></i></button>
@@ -585,6 +601,7 @@
         </div>
     </div>
 
+    <!-- MODAL DE SINCRONIZAÇÃO PC -> CELULAR -->
     <div id="modalSync" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <button class="btn-fechar-modal" onclick="fecharSyncModal()"><i class="fas fa-times"></i></button>
@@ -636,6 +653,7 @@
 
         let listenerFirestore = null; 
         let globalSyncLink = "";
+        let atualizandoApenasFipe = false; // Evita recarregar todas as fotos quando apenas a FIPE muda
         
         function isMobileDevice() {
             return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
@@ -732,7 +750,14 @@
             return marca.replace(/^GM\s*-\s*/i, "");
         }
 
+        // ================= PROTEÇÃO MÁXIMA DE UPLOAD =================
         async function uploadParaImgBB(base64Data) {
+            if (!base64Data) return null;
+            
+            if (base64Data.startsWith('http')) {
+                return base64Data;
+            }
+
             const base64Limpo = base64Data.split(',')[1];
             const formData = new FormData();
             formData.append("image", base64Limpo);
@@ -742,7 +767,7 @@
                 if (data.success) return data.data.url;
                 else throw new Error("Erro na API do ImgBB.");
             } catch (err) {
-                throw new Error("Falha na conexão com o servidor de imagens: " + err.message);
+                throw new Error("Falha na conexão com o servidor de imagens. A imagem pode ser muito pesada.");
             }
         }
 
@@ -798,11 +823,14 @@
                     return 0; 
                 });
 
-                renderizarEstoque();
+                // Se estiver apenas atualizando a FIPE em segundo plano, atualiza só o texto da FIPE sem destruir as imagens
+                if (!atualizandoApenasFipe) {
+                    renderizarEstoque();
+                }
 
                 if (!fipeAutoUpdateRodou && estoqueMock.length > 0) {
                     fipeAutoUpdateRodou = true; 
-                    setTimeout(() => autoAtualizarFipesEstoque(), 2000); 
+                    setTimeout(() => autoAtualizarFipesEstoque(), 3000); 
                 }
             });
 
@@ -858,29 +886,29 @@
                     try {
                         const resTabelas = await fetch('https://brasilapi.com.br/api/fipe/tabelas/v1');
                         const tabelas = await resTabelas.json();
-                        // Garante que só compara de forma assertiva com o ÚLTIMO mês válido
                         if (tabelas && tabelas.length >= 2) {
                             const fipeCode = dadosFipe.CodigoFipe;
-                            const limpaMoeda = (str) => parseFloat(str.replace(/[R$\s.]/g, '').replace(',', '.'));
-                            const valAtualNum = limpaMoeda(resultado.valor);
+                            const valAtualNum = parseFloat(resultado.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
                             const anoBusca = parseInt(anoEncontrado.codigo.split('-')[0]); 
 
-                            const tabelaAnterior = tabelas[1].codigo; 
-                            const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
-                            
-                            if(resPrecoAnt.ok) {
+                            for (let i = 1; i < Math.min(tabelas.length, 6); i++) {
+                                const tabelaAnterior = tabelas[i].codigo; 
+                                const resPrecoAnt = await fetch(`https://brasilapi.com.br/api/fipe/preco/v1/${fipeCode}?tabela_referencia=${tabelaAnterior}`);
                                 const listaAnterior = await resPrecoAnt.json();
+                                
                                 const precoAnteriorObj = listaAnterior.find(p => p.anoModelo === anoBusca || (anoBusca === 32000 && p.anoModelo === 32000));
                                 
                                 if (precoAnteriorObj && precoAnteriorObj.valor) {
-                                    const valAntNum = limpaMoeda(precoAnteriorObj.valor);
-                                    if (valAntNum > 0) {
+                                    const valAntNum = parseFloat(precoAnteriorObj.valor.replace(/[R$\s.]/g, '').replace(',', '.'));
+                                    
+                                    if (valAntNum > 0 && Math.abs(valAtualNum - valAntNum) > 0.01) {
                                         resultado.variacao = ((valAtualNum - valAntNum) / valAntNum) * 100;
+                                        break; 
                                     }
                                 }
                             }
                         }
-                    } catch (err) { console.error("Erro na verificação de variação FIPE:", err); }
+                    } catch (err) {}
                     return resultado;
                 }
             } catch(e) {}
@@ -908,34 +936,47 @@
 
                 const variacaoFloat = parseFloat(variacaoFipeAtual);
                 const isZero = Math.abs(variacaoFloat) < 0.01;
-                // Classes de ícone FontAwesome 6 corrigidas
-                let icone = variacaoFloat > 0 && !isZero ? 'arrow-up' : (variacaoFloat < 0 && !isZero ? 'arrow-down' : 'minus');
+                let icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
                 let corBG = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                 let corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
                 
-                $('#fipe-variacao-criar')
-                    .html(`<i class="fas fa-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`)
-                    .css({
-                        'background': corBG, 'color': corTexto, 
-                        'display': 'inline-flex', 'align-items': 'center', 'gap': '4px',
-                        'padding': '2px 6px', 'border-radius': '4px', 'font-weight': 'bold'
-                    });
+                $('#fipe-variacao-criar').html(`<i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%`).css({'background': corBG, 'color': corTexto, 'display': 'inline-block'});
             } else {
                 $('#fipe-valor-criar').text('FIPE indisponível p/ este modelo/ano');
                 valorFipeAtual = ""; variacaoFipeAtual = 0;
             }
         }
 
+        function atualizarBlocoFipeDOM(id, fipeValor, fipeVariacao, fipeMes) {
+            const containerFipe = document.getElementById(`fipe-box-${id}`);
+            if (!containerFipe || !fipeValor) return;
+            const variacaoFloat = parseFloat(fipeVariacao || 0);
+            const isZero = Math.abs(variacaoFloat) < 0.01;
+            const icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
+            const corBg = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
+            const corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
+            const badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;" title="Competência: ${fipeMes || 'Atual'}"><i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
+            containerFipe.innerHTML = `<span title="FIPE verificada em: ${fipeMes || 'Atual'}">FIPE: <strong style="color: white;">${fipeValor}</strong></span>${badgeVariacao}`;
+        }
+
         async function autoAtualizarFipesEstoque() {
             const mesAtual = obterMesAnoAtual();
-            for (let v of estoqueMock) {
-                if (v.fipeMes !== mesAtual && v.marcaId && v.versaoId && v.ano) {
-                    const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
-                    if (novosDadosFipe && novosDadosFipe.valor) {
-                        try { await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); } catch(err) {}
+            atualizandoApenasFipe = true;
+            try {
+                for (let v of [...estoqueMock]) {
+                    if (v.fipeMes !== mesAtual && v.marcaId && v.versaoId && v.ano) {
+                        const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
+                        if (novosDadosFipe && novosDadosFipe.valor) {
+                            try { 
+                                await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); 
+                                atualizarBlocoFipeDOM(v.id, novosDadosFipe.valor, novosDadosFipe.variacao, mesAtual);
+                            } catch(err) {}
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 1500)); 
                     }
-                    await new Promise(resolve => setTimeout(resolve, 1500)); 
                 }
+            } finally {
+                atualizandoApenasFipe = false;
             }
         }
 
@@ -946,16 +987,24 @@
             btn.disabled = true; btn.style.color = 'var(--brand-orange)'; btn.style.borderColor = 'var(--brand-orange)';
 
             const mesAtual = obterMesAnoAtual();
-            for(let v of estoqueMock) { 
-                const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
-                if (novosDadosFipe && novosDadosFipe.valor) {
-                    try { await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); } catch(err) {}
-                }
-                await new Promise(resolve => setTimeout(resolve, 1500)); 
-            } 
+            atualizandoApenasFipe = true;
+            try {
+                for(let v of [...estoqueMock]) { 
+                    const novosDadosFipe = await obterDadosFipe(v.marcaId, v.versaoId, v.ano, v.combustivel || 'Flex');
+                    if (novosDadosFipe && novosDadosFipe.valor) {
+                        try { 
+                            await db.collection('veiculos').doc(v.id).update({ fipeValor: novosDadosFipe.valor, fipeVariacao: novosDadosFipe.variacao, fipeMes: mesAtual }); 
+                            atualizarBlocoFipeDOM(v.id, novosDadosFipe.valor, novosDadosFipe.variacao, mesAtual);
+                        } catch(err) {}
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1500)); 
+                } 
+            } finally {
+                atualizandoApenasFipe = false;
+            }
             
             btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'; btn.style.color = '#25d366'; btn.style.borderColor = '#25d366';
-            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; btn.style.color = 'var(--text-gray)'; btn.style.borderColor = 'transparent'; }, 3000);
+            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; btn.style.color = 'var(--text-gray)'; btn.style.borderColor = 'var(--text-gray)'; }, 3000);
         }
 
         function gerarAnosDinamicos() {
@@ -999,7 +1048,14 @@
             const promessasDeArquivos = Array.from(files).map(file => {
                 return new Promise((resolve) => {
                     const reader = new FileReader();
-                    reader.onload = function(e) { resolve({ dataUrl: e.target.result }); }
+                    reader.onload = async function(e) { 
+                        try {
+                            const base64Reduzido = await redimensionarBase64(e.target.result, 1200);
+                            resolve({ dataUrl: base64Reduzido }); 
+                        } catch(err) {
+                            resolve({ dataUrl: e.target.result });
+                        }
+                    }
                     reader.readAsDataURL(file);
                 });
             });
@@ -1030,6 +1086,9 @@
                 const img = document.createElement('img');
                 img.src = foto.dataUrl;
                 img.classList.add('preview-item');
+                img.referrerPolicy = "no-referrer";
+                img.loading = "lazy";
+                img.decoding = "async";
                 
                 const btnRemove = document.createElement('button');
                 btnRemove.innerHTML = '×';
@@ -1119,9 +1178,9 @@
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        _subject: "📸 Upload de Fotos - F&D Autos",
-                        "Instrução": "Abra este e-mail no seu celular e clique no link abaixo para fazer o upload:",
-                        "Link_Acesso": globalSyncLink
+                        _subject: "F&D Autos - Sincronização de Fotos (Upload)",
+                        "Mensagem": "Olá! Abra este e-mail no seu celular e clique no link abaixo para enviar as fotos direto para o painel de administração da F&D Autos:",
+                        "Link de Acesso Seguro": globalSyncLink
                     })
                 });
 
@@ -1130,7 +1189,7 @@
                     btn.style.background = '#25d366';
                     btn.style.color = '#000';
                     
-                    alert("✅ E-mail enviado com sucesso para " + userEmail + "!\n\n⚠️ IMPORTANTE: Se for a sua primeira vez enviando, verifique a pasta de SPAM. Abra o e-mail do 'FormSubmit' e clique em 'Activate' para liberar.");
+                    alert("✅ E-mail enviado com sucesso para " + userEmail + "!\n\n⚠️ IMPORTANTE: Se for a sua primeira vez enviando, verifique a pasta de SPAM/Lixo Eletrônico. Abra o e-mail recebido e clique em 'Activate' para liberar.");
                 } else {
                     throw new Error('Falha no envio.');
                 }
@@ -1204,7 +1263,6 @@
             } catch (err) { alert("Erro de comunicação ao atualizar status."); }
         }
 
-        // ================= VERIFICAÇÃO E CORREÇÃO DE UPLOAD AO SALVAR =================
         async function salvarVeiculo(event) {
             event.preventDefault();
             const btnSalvar = document.getElementById('btnSalvarCriar');
@@ -1217,17 +1275,8 @@
             try {
                 const fotoUrls = [];
                 for (let i = 0; i < fotosCriar.length; i++) {
-                    let fileData = fotosCriar[i].dataUrl;
-                    if (fileData.startsWith('http')) {
-                        fotoUrls.push(fileData);
-                    } else {
-                        // FIX DE UPLOAD LENTO: Redimensiona no navegador ANTES de enviar para a API de imagens
-                        if (fileData.startsWith('data:image')) {
-                            fileData = await redimensionarBase64(fileData, 1200); 
-                        }
-                        const url = await uploadParaImgBB(fileData);
-                        if(url) fotoUrls.push(url);
-                    }
+                    const url = await uploadParaImgBB(fotosCriar[i].dataUrl);
+                    if(url) fotoUrls.push(url);
                 }
 
                 const novoVeiculo = {
@@ -1271,6 +1320,21 @@
             if(previewTimersAdmin[veiculoId]) { clearInterval(previewTimersAdmin[veiculoId]); delete previewTimersAdmin[veiculoId]; }
             const v = estoqueMock.find(veic => veic.id === veiculoId);
             if(v && v.fotos) element.src = v.fotos[0];
+        }
+
+        // Reconexão inteligente caso o ImgBB dê rate-limit temporário
+        function tratarErroImagem(imgElement, urlOriginal) {
+            const tentativas = parseInt(imgElement.dataset.retries || '0');
+            if (tentativas < 2 && urlOriginal && urlOriginal.startsWith('http')) {
+                imgElement.dataset.retries = tentativas + 1;
+                setTimeout(() => {
+                    const separador = urlOriginal.includes('?') ? '&' : '?';
+                    imgElement.src = `${urlOriginal}${separador}retry=${Date.now()}`;
+                }, 1500 * (tentativas + 1));
+            } else {
+                imgElement.src = 'https://via.placeholder.com/800x600/161b22/a0a0a0?text=Carregando+Imagem...';
+                imgElement.classList.add('loaded');
+            }
         }
 
         async function baixarFotosZip(veiculoId) {
@@ -1324,10 +1388,15 @@
             $('#count-ativos').text(ativos);
             $('#count-inativos').text(inativos);
 
-            container.innerHTML = '';
-            if (estoqueFiltrado.length === 0) { container.innerHTML = '<p style="color: var(--text-gray); grid-column: 1 / -1;">Nenhum veículo encontrado.</p>'; return; }
+            if (estoqueFiltrado.length === 0) { 
+                container.innerHTML = '<p style="color: var(--text-gray); grid-column: 1 / -1;">Nenhum veículo encontrado.</p>'; 
+                return; 
+            }
 
-            estoqueFiltrado.forEach(v => {
+            // OTIMIZAÇÃO CRÍTICA: Monta todos os cards em uma variável única para evitar reconstruir o DOM dezenas de vezes
+            let htmlCards = '';
+
+            estoqueFiltrado.forEach((v, idx) => {
                 const imgCapa = v.fotos && v.fotos.length > 0 ? v.fotos[0] : 'https://via.placeholder.com/800x600?text=Sem+Foto';
                 const statusClass = v.status === 'publicado' ? 'publicado' : 'rascunho';
                 const btnPubText = v.status === 'publicado' ? '<i class="fas fa-cloud-download-alt"></i> Despublicar' : '<i class="fas fa-cloud-upload-alt"></i> Publicar';
@@ -1337,7 +1406,7 @@
                 
                 const marcaLimpa = formatarMarca(v.marca);
                 const marcaParaLogo = Object.keys(logosMarcas).find(key => key.toLowerCase() === marcaLimpa.toLowerCase());
-                const logoHtml = marcaParaLogo ? `<img src="${logosMarcas[marcaParaLogo]}" alt="${marcaLimpa}" style="width: 25px; height: 25px; object-fit: contain; vertical-align: bottom; margin-right: 5px;">` : '';
+                const logoHtml = marcaParaLogo ? `<img src="${logosMarcas[marcaParaLogo]}" alt="${marcaLimpa}" loading="lazy" decoding="async" style="width: 25px; height: 25px; object-fit: contain; vertical-align: bottom; margin-right: 5px;">` : '';
 
                 let diasNoEstoque = 0;
                 if (v.dataCriacao && v.dataCriacao.toDate) {
@@ -1350,27 +1419,40 @@
                 else if (diasNoEstoque > 20 && diasNoEstoque <= 30) { corDias = '#ffeb3b'; bgDias = 'rgba(255, 235, 59, 0.15)'; } 
                 else if (diasNoEstoque > 30) { corDias = '#ff4c4c'; bgDias = 'rgba(255, 76, 76, 0.15)'; } 
 
-                let blocoFipe = '';
+                let blocoFipe = `<div id="fipe-box-${v.id}" style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"></div>`;
                 if (v.fipeValor) {
                     let badgeVariacao = '';
                     if (v.fipeVariacao !== undefined && v.fipeVariacao !== null) {
                         const variacaoFloat = parseFloat(v.fipeVariacao); const isZero = Math.abs(variacaoFloat) < 0.01;
-                        const icone = variacaoFloat > 0 && !isZero ? 'arrow-up' : (variacaoFloat < 0 && !isZero ? 'arrow-down' : 'minus');
+                        const icone = variacaoFloat > 0 && !isZero ? 'up' : (variacaoFloat < 0 && !isZero ? 'down' : 'minus');
                         const corBg = variacaoFloat > 0 && !isZero ? 'rgba(37, 211, 102, 0.15)' : (variacaoFloat < 0 && !isZero ? 'rgba(255, 76, 76, 0.15)' : 'rgba(255,255,255,0.1)');
                         const corTexto = variacaoFloat > 0 && !isZero ? '#25d366' : (variacaoFloat < 0 && !isZero ? '#ff4c4c' : '#a0a0a0');
-                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; display:inline-flex; align-items:center; gap:3px;" title="Competência: ${v.fipeMes || 'Desconhecida'}"><i class="fas fa-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
+                        badgeVariacao = `<span style="background: ${corBg}; color: ${corTexto}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;" title="Competência: ${v.fipeMes || 'Desconhecida'}"><i class="fas fa-arrow-${icone}"></i> ${isZero ? '0.00' : Math.abs(variacaoFloat).toFixed(2)}%</span>`;
                     }
-                    blocoFipe = `<div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span title="FIPE verificada em: ${v.fipeMes || 'Antiga'}">FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>${badgeVariacao}</div>`;
+                    blocoFipe = `<div id="fipe-box-${v.id}" style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span title="FIPE verificada em: ${v.fipeMes || 'Antiga'}">FIPE: <strong style="color: white;">${v.fipeValor}</strong></span>${badgeVariacao}</div>`;
                 }
 
-                container.innerHTML += `
+                // Os primeiros 6 veículos têm prioridade na tela, o restante carrega sob demanda (lazy)
+                const attrLoading = idx < 6 ? 'eager' : 'lazy';
+
+                htmlCards += `
                 <div class="admin-card">
                     <div class="img-container">
                         <span class="status-badge ${statusClass}">${v.status}</span>
                         <span class="fotos-badge"><i class="fas fa-camera"></i> ${qtdFotos}</span>
                         <span class="placa-badge"><i class="fas fa-id-card"></i> ${placaText}</span>
                         <button class="btn-download-zip" id="btn-zip-${v.id}" onclick="baixarFotosZip('${v.id}')" title="Baixar todas as fotos"><i class="fas fa-download"></i></button>
-                        <img src="${imgCapa}" alt="${marcaLimpa} ${v.versao}" onmouseenter="startPreview(this, '${v.id}')" onmouseleave="stopPreview(this, '${v.id}')" ontouchstart="startPreview(this, '${v.id}')" ontouchend="stopPreview(this, '${v.id}')">
+                        <img src="${imgCapa}" 
+                             alt="${marcaLimpa} ${v.versao}" 
+                             loading="${attrLoading}" 
+                             decoding="async" 
+                             referrerpolicy="no-referrer"
+                             onload="this.classList.add('loaded')"
+                             onerror="tratarErroImagem(this, '${imgCapa}')"
+                             onmouseenter="startPreview(this, '${v.id}')" 
+                             onmouseleave="stopPreview(this, '${v.id}')" 
+                             ontouchstart="startPreview(this, '${v.id}')" 
+                             ontouchend="stopPreview(this, '${v.id}')">
                     </div>
                     <div class="admin-card-body">
                         <h3 style="display: flex; align-items: center;">${logoHtml} ${marcaLimpa} ${v.versao} (${v.ano})</h3>
@@ -1396,6 +1478,8 @@
                     </div>
                 </div>`;
             });
+
+            container.innerHTML = htmlCards;
         }
 
         async function alternarStatus(id) {
@@ -1456,16 +1540,8 @@
                 try {
                     const fotoUrls = [];
                     for (let i = 0; i < fotosEditar.length; i++) {
-                        let fileData = fotosEditar[i].dataUrl;
-                        if (fileData.startsWith('http')) fotoUrls.push(fileData);
-                        else { 
-                            // FIX DE UPLOAD LENTO NO EDITAR TAMBÉM
-                            if (fileData.startsWith('data:image')) {
-                                fileData = await redimensionarBase64(fileData, 1200);
-                            }
-                            const url = await uploadParaImgBB(fileData); 
-                            if(url) fotoUrls.push(url); 
-                        }
+                        const url = await uploadParaImgBB(fotosEditar[i].dataUrl);
+                        if(url) fotoUrls.push(url);
                     }
 
                     const editVersaoCustom = document.getElementById('edit_versao_custom');
@@ -1546,8 +1622,7 @@
    - Defina exatamente a direção (ou é "Direção Hidráulica" ou "Direção Elétrica"). Nunca coloque as duas.
    - Defina o som de forma profissional (ou "Rádio MP3", ou "Central Multimídia", ou "Sistema de Som original"). PROIBIDO usar a palavra "som ambiente".
 5. ❌ PROIBIDO: Não invente opcionais que você não está a ver nas fotos.
-6. 📊 INFORMAÇÕES TÉCNICAS REAIS: Utilize o seu forte conhecimento interno como I.A para buscar a ficha técnica real deste modelo exato (${marca} ${versao} ${ano}). Adicione um pequeno bloco centralizado chamado "⚙️ Ficha Técnica Resumida" informando os valores técnicos reais da categoria: Potência do motor, Consumo médio e Capacidade do porta-malas.
-7. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto:
+6. 🛡️ ENCERRAMENTO OBRIGATÓRIO: Copie e cole EXATAMENTE o bloco abaixo no final do texto:
 
 ${templateDesejado}`;
 
